@@ -14,7 +14,6 @@ CPU=2,maxcpus=2,dies=1,cores=2,sockets=1,threads=1
 VMDIR=/virtualisation
 ISODIR=/applications/OS/isos
 
-# tryout, didnt work...
 args=(
     -uuid ${UUID}
     -name ${NETNAME},process=${NETNAME}

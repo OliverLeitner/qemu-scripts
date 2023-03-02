@@ -14,7 +14,6 @@ ISODIR=/applications/OS/isos
 VMDIR=/virtualisation
 VARS=${VMDIR}/ovmf/OVMF_VARS-${NETNAME}.fd
 
-# tryout, didnt work...
 args=(
     -uuid ${UUID}
     -name ${NETNAME},process=${NETNAME}
