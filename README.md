@@ -19,7 +19,7 @@ these are some common startup scripts for my set of vms
 ## requirements:
 
 - Linux host operating system (in my case: Ubuntu 22.04.2 LTS)
-- Qemu 6.2.0 (qemu-system-x86_64)
+- Qemu 6.2.0 (qemu-system-x86_64) with enabled KVM support
 - software emulated tpm (swtpm)
 - OVMF uefi firmware binaries
 - libvirglrenderer1
