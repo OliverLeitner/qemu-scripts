@@ -33,7 +33,7 @@ these are some common startup scripts for my set of vms
 - Intel Core I3 8th gen (others are possible, this is just what i have been running em on...)
 - base gnu tools in reasonably current versions: "bash", "cat", "grep", "ip", "sed", "cut"
 - enough RAM and disk space to handle the machine(s)
-- a file called "macs.txt" containing names and mac addresses of guests in the form of one: "netname=mac" per line
+- a file called "macs.txt" containing names and mac addresses of guests in the form of one "netname=mac" per line
 - for MacOSX: a file called osxkey.txt containing the OSX key (one line, just the key)
 
 ## features:
@@ -74,7 +74,7 @@ these are some common startup scripts for my set of vms
 ## why?
 
 ive been using virt-manager / libvirtd for years now, they have their place in running stable vm guests,
-however, virt-manager has its limitations if you really want to go the virsh way, youll have to 
+however, virt-manager has its limitations. if you really want to go the virsh way, youll have to 
 add some qemu start parameters anyways to get non-virt-manager qemu parameters in plus youve always
 got the overhead of wrapping libvirtd around your qemu, thus the latency will be higher...
 
