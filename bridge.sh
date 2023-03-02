@@ -14,9 +14,15 @@ function create_bridge() {
     sudo ip link set tap0-${NAME} master ${BRIDGE_IF}
 }
 
-#if [[ `nmcli device status |grep tap0-${NAME}` == *"tap0-${NAME}"* ]]; then
-#    delete_bridge
-#fi
+if [[ `nmcli device status |grep tap0-${NAME}` == *"tap0-${NAME}"* ]] && [[ $CMD == "start" ]]; then
+    echo "TAP for ${NAME} is already running."
+    exit 1
+fi
+
+if [[ `nmcli device status |grep tap0-${NAME}` != *"tap0-${NAME}"* ]] && [[ $CMD == "stop" ]]; then
+    echo "TAP for ${NAME} does not exist."
+    exit 1
+fi
 
 case $CMD in
     start)
