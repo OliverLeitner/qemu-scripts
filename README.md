@@ -2,6 +2,16 @@
 
 these are some common startup scripts for my set of vms
 
+## howto use:
+- to start a vm:
+    - sudo ./bridge.sh netname start
+    - ./netname.sh start
+- to stop a vm:
+    - power down the vm
+    - sudo ./bridge.sh netname stop
+
+vm guest run as your user, dont need to be superuser, however, the net if needs superuser by default
+
 ## included:
 
 - arch.sh: arch gnu/linux startup script
@@ -15,6 +25,7 @@ these are some common startup scripts for my set of vms
 - void.sh: void gnu/linux startup script
 - winplay10.sh: Windows 10 startup script
 - winplay.sh: Windows 11 startup script
+- bridge.sh: tap network starter script
 
 ## requirements:
 
