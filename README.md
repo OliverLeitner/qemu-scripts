@@ -33,7 +33,7 @@ these are some common startup scripts for my set of vms
 - Intel Core I3 8th gen (others are possible, this is just what i have been running em on...)
 - base gnu tools in reasonably current versions: "bash", "cat", "grep", "ip", "sed", "cut"
 - enough RAM and disk space to handle the machine(s)
-- a file called "hosts.txt" containing names and mac addresses of guests in the form of one: "name=mac" per line
+- a file called "macs.txt" containing names and mac addresses of guests in the form of one: "name=mac" per line
 - for MacOSX: a file called osxkey.txt containing the OSX key (one line, just the key)
 
 ## features:
