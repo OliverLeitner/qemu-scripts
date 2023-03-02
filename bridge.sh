@@ -14,9 +14,9 @@ function create_bridge() {
     sudo ip link set tap0-${NAME} master ${BRIDGE_IF}
 }
 
-if [[ `nmcli device status |grep tap0-${NAME}` == *"tap0-${NAME}"* ]]; then
-    delete_bridge
-fi
+#if [[ `nmcli device status |grep tap0-${NAME}` == *"tap0-${NAME}"* ]]; then
+#    delete_bridge
+#fi
 
 case $CMD in
     start)
@@ -24,6 +24,7 @@ case $CMD in
         echo "bridge if created"
     ;;
     stop)
+        delete_bridge
         echo "stopped the tap if"
     ;;
     *)

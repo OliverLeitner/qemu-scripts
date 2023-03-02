@@ -4,11 +4,11 @@ these are some common startup scripts for my set of vms
 
 ## howto use:
 - to start a vm:
-    - sudo ./bridge.sh netname start
+    - ./bridge.sh netname start
     - ./netname.sh start
 - to stop a vm:
     - power down the vm
-    - sudo ./bridge.sh netname stop
+    - ./bridge.sh netname stop
 
 vm guest run as your user, dont need to be superuser, however, the net if needs superuser by default
 
