@@ -28,7 +28,7 @@ these are some common startup scripts for my set of vms
 - libsdl-*
 - X Windows System (xorg)
 - uuid-runtime (uuidgen tool for generating unique process ids)
-- a bridged network (br0), the scripts generate tap interfaces based upon it
+- a bridged network (br0) and a dhcp server, the scripts generate tap interfaces based upon it
 - tested with an NVIDIA Card (GTX 750, RTX 3050 is what ive been using)
 - Intel Core I3 8th gen (others are possible, this is just what i have been running em on...)
 - base gnu tools in reasonably current versions: "bash", "cat", "grep", "ip", "sed", "cut"
