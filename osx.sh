@@ -21,7 +21,7 @@ OVMF_DIR="/storage/git/OSX-KVM"
 
 BOOT_BIN=/usr/bin/qemu-system-x86_64
 NETNAME=osx
-MAC=$(sed -n "/^${NETNAME}=*/p" macs.txt |cut -d"=" -f 2)
+MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 HOSTNAME=${NETNAME}
 MEM=8G
 DP=sdl,gl=on

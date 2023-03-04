@@ -2,7 +2,7 @@
 BOOT_BIN=/usr/bin/qemu-system-x86_64
 NETNAME=void
 HOSTNAME=${NETNAME}
-MAC=$(sed -n "/^${NETNAME}=*/p" macs.txt |cut -d"=" -f 2)
+MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 MEM=4G
 DP=sdl,gl=on
 MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=off,nvdimm=off,hmat=on,memory-backend=mem1

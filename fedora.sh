@@ -1,7 +1,7 @@
 #!/bin/bash
 BOOT_BIN=/usr/bin/qemu-system-x86_64
 NETNAME=fedora
-MAC=$(sed -n "/^${NETNAME}=*/p" macs.txt |cut -d"=" -f 2)
+MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 HOSTNAME=${NETNAME}
 MEM=4G
 DP=sdl,gl=on
