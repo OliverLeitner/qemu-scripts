@@ -10,7 +10,7 @@ these are some common startup scripts for my set of vms
     - power down the vm
     - ./bridge.sh netname stop
 
-vm guest run as your user, dont need to be superuser, however, the net if needs superuser by default
+vm guest run as your user, dont need to be superuser, however, the net bridge and tap setup needs superuser by default, bridge.sh will ask you for your sudo password.
 
 ## included:
 
@@ -42,14 +42,14 @@ vm guest run as your user, dont need to be superuser, however, the net if needs 
 - a bridged network (br0) and a dhcp server, the scripts generate tap interfaces based upon it
 - tested with an NVIDIA Card (GTX 750, RTX 3050 is what ive been using)
 - Intel Core I3 8th gen (others are possible, this is just what i have been running em on...)
-- base gnu tools in reasonably current versions: "bash", "cat", "grep", "ip", "sed", "cut"
+- base gnu tools in reasonably current versions: "bash", "cat", "grep", "ip", "cut", "brctl", "nmcli", "sudo"
 - enough RAM and disk space to handle the machine(s)
 - a file called "macs.txt" containing names and mac addresses of guests in the form of one "netname=mac" per line
 - for MacOSX: a file called osxkey.txt containing the OSX key (one line, just the key)
 
 ## features:
 
-- no gpu/hardware sharing needed
+- no host-blocking gpu/hardware sharing needed
 - console access for restarting and handling the vm guests
 - possibility for advanced sandboxing
 - low latency desktop performance due to using sdl/virgl
@@ -81,6 +81,9 @@ vm guest run as your user, dont need to be superuser, however, the net if needs 
 
 - bliss.os:
     - i have had problems getting other android distributions than bliss os running stable or at all
+    
+- winplay.sh, winplay10.sh:
+    - windows virgl/vulkan support is still limited
 
 ## why?
 
