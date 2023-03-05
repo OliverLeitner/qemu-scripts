@@ -47,9 +47,10 @@ args=(
     -device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
     -chardev spicevmc,id=vdagent0,name=vdagent
     -device virtserialport,chardev=vdagent0,name=com.redhat.spice.0
+    #-device virtio-mouse
     #-device virtio-vga-gl #,xres=1920,yres=1080
     #-vga none
-    -vga qxl -global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256 \
+    -vga qxl -global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256
     #-display ${DP}
     -device virtio-net-pci,mq=on,packed=on,netdev=net0,mac=${MAC}
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
@@ -60,6 +61,7 @@ args=(
     -usb
     #-device usb-ehci,id=usb
     -device usb-tablet
+    #-device usb-mouse
     -monitor stdio
     #-sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
     -k de

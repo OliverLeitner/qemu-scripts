@@ -46,8 +46,8 @@ args=(
     -device virtserialport,chardev=vdagent0,name=com.redhat.spice.0
     #-device virtio-vga-gl #,xres=1920,yres=1080
     #-vga none
-    #-display ${DP}
-    -vga qxl -global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256 \
+    -display ${DP}
+    -vga qxl -global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256
     -device virtio-net-pci,mq=on,packed=on,netdev=net0,mac=${MAC}
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
     -device ich9-intel-hda -device hda-duplex
