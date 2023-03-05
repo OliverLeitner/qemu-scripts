@@ -25,9 +25,10 @@ args=(
     -m ${MEM}
     -smbios type=2,manufacturer="oliver",product="${NETNAME}starter",version="0.1",serial="0xDEADBEEF",location="github.com",asset="${NETNAME}"
     #-mem-prealloc
-    -rtc base=localtime
+    #-rtc base=localtime
     -drive "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd"
     -drive "if=pflash,format=raw,file=/tmp/${NETNAME}/my_vars.fd"
+    #-drive file=${ISODIR}/virtio-win.iso,media=cdrom
     -drive file=${VMDIR}/${NETNAME}.qcow2,media=disk,if=virtio,format=qcow2,cache=writeback,aio=io_uring
     -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
     -tpmdev emulator,id=tpm0,chardev=chrtpm
@@ -46,9 +47,10 @@ args=(
     -device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
     -chardev spicevmc,id=vdagent0,name=vdagent
     -device virtserialport,chardev=vdagent0,name=com.redhat.spice.0
-    -device virtio-vga-gl,xres=1920,yres=1080
-    -vga none
-    -display ${DP}
+    #-device virtio-vga-gl #,xres=1920,yres=1080
+    #-vga none
+    -vga qxl -global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256 \
+    #-display ${DP}
     -device virtio-net-pci,mq=on,packed=on,netdev=net0,mac=${MAC}
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
     -device ich9-intel-hda -device hda-duplex
