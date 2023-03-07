@@ -2,7 +2,7 @@
 
 these are some common startup scripts for my set of vms
 
-## howto use:
+## howto use (granted you have a qcow2 file ready and adopted the scripts to your files and dirs and network IF):
 - to start a vm:
     - ./bridge.sh netname start
     - ./netname.sh start
@@ -81,14 +81,14 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 
 - bliss.os:
     - i have had problems getting other android distributions than bliss os running stable or at all
-    
+
 - winplay.sh, winplay10.sh:
     - windows virgl/vulkan support is still limited
 
 ## why?
 
 ive been using virt-manager / libvirtd for years now, they have their place in running stable vm guests,
-however, virt-manager has its limitations. if you really want to go the virsh way, youll have to 
+however, virt-manager has its limitations. if you really want to go the virsh way, youll have to
 add some qemu start parameters anyways to get non-virt-manager qemu parameters in plus youve always
 got the overhead of wrapping libvirtd around your qemu, thus the latency will be higher...
 

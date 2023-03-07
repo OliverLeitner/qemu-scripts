@@ -4,11 +4,11 @@ NETNAME=winplay
 MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 HOSTNAME=${NETNAME}
 MEM=8G
-DP=sdl,gl=on
+DP=sdl,gl=on,show-cursor=off
 #SHMEM=ivshmem-plain,memdev=hostmem
 #MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=off,hmat=on
 #MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=off,hmat=on,memory-backend=mem1
-MTYPE=q35
+MTYPE=q35,vmport=off,mem-merge=on,smm=on,nvdimm=off,hmat=on,memory-backend=mem1
 #ACCEL=accel=kvm,kvm-shadow-mem=256000000
 UUID="$(uuidgen)"
 CPU=4,maxcpus=4,cores=4,sockets=1,threads=1
@@ -34,7 +34,7 @@ args=(
     -tpmdev emulator,id=tpm0,chardev=chrtpm
     -device tpm-crb,tpmdev=tpm0
     -enable-kvm
-    #-object memory-backend-memfd,id=mem1,share=on,size=${MEM}
+    -object memory-backend-memfd,id=mem1,share=on,size=${MEM}
     -machine ${MTYPE} #,${ACCEL}
     #-object memory-backend-file,size=4G,share=on,mem-path=/dev/shm/ivshmem,id=hostmem
     #-overcommit mem-lock=off
@@ -42,19 +42,21 @@ args=(
     -device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
     -object rng-random,id=objrng0,filename=/dev/urandom
     -device virtio-rng-pci,rng=objrng0,id=rng0
+    -device intel-iommu
     -device virtio-serial-pci
     -chardev socket,id=agent0,path="/tmp/${NETNAME}/${NETNAME}-agent.sock",server=on,wait=off
     -device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
     -chardev spicevmc,id=vdagent0,name=vdagent
     -device virtserialport,chardev=vdagent0,name=com.redhat.spice.0
-    #-device virtio-mouse
-    #-device virtio-vga-gl #,xres=1920,yres=1080
+    #-device virtio-vga-gl,xres=1920,yres=1080
     #-vga none
-    -vga qxl -global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256
-    #-display ${DP}
+    -device qxl-vga
+    -global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256
+    -display ${DP}
     -device virtio-net-pci,mq=on,packed=on,netdev=net0,mac=${MAC}
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
-    -device ich9-intel-hda -device hda-duplex
+    -audiodev pa,id=sdl0,server=unix:/run/user/1000/pulse/native,out.frequency=32000,in.latency=500
+    -device intel-hda -device hda-output,audiodev=sdl0
     -chardev pty,id=charserial0
     -device isa-serial,chardev=charserial0,id=serial0
     -chardev spicevmc,id=charchannel0,name=vdagent
@@ -87,7 +89,7 @@ fi
 exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
 
 
-GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+GDK_SCALE=1 GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
 
 #close up script
 exit 0
