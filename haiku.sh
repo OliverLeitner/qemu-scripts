@@ -50,10 +50,10 @@ args=(
     #-device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
     #-chardev spicevmc,id=vdagent0,name=vdagent
     #-device virtserialport,chardev=vdagent0,name=com.redhat.spice.0
-    -device virtio-vga-gl,xres=1920,yres=1080
+    #-device virtio-vga-gl,xres=1920,yres=1080
     #-device virtio-vga,xres=1920,yres=1080
-    -vga none
-    #-vga qxl -global qxl-vga.ram_size=1048576 -global qxl-vga.vram_size=1048576 -global qxl-vga.vgamem_mb=1024
+    #-vga none
+    -vga qxl -global qxl-vga.ram_size=1048576 -global qxl-vga.vram_size=1048576 -global qxl-vga.vgamem_mb=1024
     #-vga vmware
     -display ${DP}
     #-device virtio-net-pci,mq=on,packed=on,netdev=net0,mac=${MAC}
@@ -62,7 +62,8 @@ args=(
     #-netdev user,id=net0
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
     #-device ich9-intel-hda -device hda-duplex
-    -device ac97
+    -audiodev sdl,id=sdl0
+    -device ac97,audiodev=sdl0
     -usb
     -device usb-tablet
     -monitor stdio

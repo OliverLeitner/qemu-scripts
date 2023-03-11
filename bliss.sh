@@ -59,6 +59,11 @@ args=(
     -k de
 )
 
+#create tmp dir if not exists
+if [ ! -d "/tmp/${NETNAME}" ]; then
+    mkdir /tmp/${NETNAME}
+fi
+
 #create myvars if not exists
 if [ ! -f "/tmp/${NETNAME}/my_vars.fd" ]; then
     cp /usr/share/OVMF/OVMF_VARS.fd /tmp/${NETNAME}/my_vars.fd
@@ -68,11 +73,6 @@ fi
 if [[ $(ip -br l | awk '$1 !~ "lo|vir|wl" { print $1 }') != *tap0-${NETNAME}* ]]; then
     echo "bridge is not running, please start bridge interface"
     exit 1
-fi
-
-#create tmp dir if not exists
-if [ ! -d "/tmp/${NETNAME}" ]; then
-    mkdir /tmp/${NETNAME}
 fi
 
 # get tpm going

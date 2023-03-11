@@ -25,6 +25,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 - void.sh: void gnu/linux startup script
 - winplay10.sh: Windows 10 startup script
 - winplay.sh: Windows 11 startup script
+- freebsd.sh: FreeBSD 13.1 startup script
 - bridge.sh: tap network starter script
 
 ## requirements:
@@ -84,6 +85,11 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 
 - winplay.sh, winplay10.sh:
     - windows virgl/vulkan support is still limited
+
+- freebsd.sh:
+    - freebsd currently neither supports qxl nor virtio gpu's, using vmware gfx meanwhile.
+      as a result the experience is slightly sluggish, to get your mouse back from being captured
+      use ctrl+alt+g to escape the capturing.
 
 ## why?
 
