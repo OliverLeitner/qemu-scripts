@@ -90,7 +90,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
     - freebsd currently neither supports qxl nor virtio gpu's, using vmware gfx meanwhile.
       as a result the experience is slightly sluggish, to get your mouse back from being captured
       use ctrl+alt+g to escape the capturing.
-      workaround: switch to current (qxl in current pkg repo "working" since about 24 hours ago,
+      workaround: switch to current (qxl in current pkg repo "working" since 15.03.2023,
       however, still not perfect, does not work in sdl (spice only), also basically every desktop
       environment with settings and session management hardcrashes back to login manager...)
       known working window managers: i3, dwm, xmonad
