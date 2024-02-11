@@ -1,16 +1,12 @@
 #!/bin/bash
 BOOT_BIN=/usr/bin/qemu-system-x86_64
-NETNAME=arch
+NETNAME=chromeos
 MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 HOSTNAME=${NETNAME}
 MEM=4G
-# intel render node
-GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
-# nvidia render node
-NV_RENDER=/dev/dri/by-path/pci-0000:01:00.0-render
-#DP=sdl,gl=on
-DP=egl-headless,rendernode=${NV_RENDER} #rendernode=/dev/dri/by-path/pci-0000:00:02.0-render
-MTYPE=pc-q35-6.2,dump-guest-core=off,mem-merge=on,smm=on,vmport=off,nvdimm=off,hmat=on,memory-backend=mem1 #,accel=kvm
+DP=sdl,gl=on,show-cursor=on
+#DP=egl-headless
+MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=off,nvdimm=off,hmat=on,memory-backend=mem1
 ACCEL=accel=kvm #,kvm-shadow-mem=256000000,kernel_irqchip=on
 UUID="$(uuidgen)"
 CPU=2,maxcpus=2,cores=2,sockets=1,threads=1
@@ -31,10 +27,9 @@ args=(
     -mem-prealloc
     #-global kvm-pit.lost_tick_policy=delay
     #-rtc base=localtime
-    -object iothread,id=iothread0
-    #-drive file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=virtio,format=qcow2,cache=none,cache.direct=off,aio=io_uring
-    -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=none,format=qcow2,cache=none,cache.direct=off,aio=io_uring
-    -device virtio-blk-pci,drive=drive0,iothread=iothread0
+    #-drive id=drive0,file=${VMDIR}/${NETNAME}.img,index=0,media=disk,if=none,format=raw,cache=none,cache.direct=off,aio=io_uring
+    -hda ${VMDIR}/${NETNAME}.img
+    #-device virtio-blk-pci,drive=drive0
     -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
     -tpmdev emulator,id=tpm0,chardev=chrtpm
     -device tpm-crb,tpmdev=tpm0
@@ -48,13 +43,8 @@ args=(
     -device virtio-serial-pci
     -chardev socket,id=agent0,path="/tmp/${NETNAME}/${NETNAME}-agent.sock",server=on,wait=off
     -device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
-    -device virtio-vga-gl,edid=on #,xres=1920,yres=1080
-    #-vga none
-    #-device qxl-vga
-    #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
-    #-spice agent-mouse=off,plaintext-channel=default,seamless-migration=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on
-    -spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
-    -display ${DP}
+    -device virtio-vga-gl #,xres=1920,yres=1080
+    #-spice agent-mouse=off,image-compression=off,jpeg-wan-compression=never,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on
     -device virtio-serial
     -chardev spicevmc,id=vdagent,debug=0,name=vdagent
     -device virtserialport,chardev=vdagent,name=com.redhat.spice.0
@@ -62,6 +52,8 @@ args=(
     -device ich9-intel-hda
     -device hda-duplex,audiodev=snd0
     #-device hda-micro,audiodev=pa
+    -vga none
+    -display ${DP}
     -device virtio-net-pci,mq=on,packed=on,netdev=net0,mac=${MAC}
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
     -usb
@@ -86,9 +78,6 @@ fi
 # get tpm going
 exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
 
-# intel
-#DRI_PRIME=pci-0000_00_02_0 GDK_SCALE=1 GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
-# nvidia
-DRI_PRIME=pci-0000_01_00_0 GDK_SCALE=1 GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
 
 exit 0
