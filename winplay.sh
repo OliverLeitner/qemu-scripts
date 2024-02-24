@@ -57,7 +57,7 @@ args=(
     -drive "if=pflash,format=raw,file=/tmp/${NETNAME}/my_vars.fd"
     #-drive file=${ISODIR}/virtio-win.iso,media=cdrom
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,media=disk,if=none,cache=none,cache.direct=off,aio=io_uring
-    -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
+    -device virtio-blk-pci,id=blk0,drive=drive0,num-queues=4,iothread=iothread0
     -set device.blk0.discard_granularity=0
     -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
     -tpmdev emulator,id=tpm0,chardev=chrtpm

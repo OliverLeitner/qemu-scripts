@@ -52,7 +52,7 @@ args=(
     #-rtc base=localtime
     -object iothread,id=iothread0
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=none,format=qcow2,cache=none,cache.direct=off,aio=io_uring
-    -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
+    -device virtio-blk-pci,id=blk0,drive=drive0,num-queues=4,iothread=iothread0
     -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
     -tpmdev emulator,id=tpm0,chardev=chrtpm
     -device tpm-crb,tpmdev=tpm0

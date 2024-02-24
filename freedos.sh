@@ -65,6 +65,7 @@ args=(
     -rtc base=localtime
     #-object iothread,id=iothread0
     -boot order=c,menu=on,strict=on,splash-time=20000
+    -object iothread,id=iothread0
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,media=disk,format=qcow2,index=0,if=none,cache=none,cache.direct=off,aio=io_uring
     -drive file=${ISODIR}/dos/FD13BNS.iso,media=cdrom,index=2,format=raw
     -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
