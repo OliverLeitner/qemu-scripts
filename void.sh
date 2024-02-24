@@ -10,6 +10,7 @@ GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
 NV_RENDER=/dev/dri/by-path/pci-0000:01:00.0-render
 #DP=sdl,gl=on
 DP=egl-headless,rendernode=${NV_RENDER} #rendernode=/dev/dri/by-path/pci-0000:00:02.0-render
+SPICE_PORT=5970
 MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=off,nvdimm=off,hmat=on,memory-backend=mem1
 ACCEL=accel=kvm #,kvm-shadow-mem=256000000,kernel_irqchip=on
 UUID="$(uuidgen)"
@@ -18,6 +19,24 @@ BIOS=/usr/share/OVMF/OVMF_CODE.fd
 ISODIR=/applications/OS/isos
 VMDIR=/virtualisation
 VARS=${VMDIR}/ovmf/OVMF_VARS-${NETNAME}.fd
+
+# some help output
+FILE=`basename "$0"`
+CONN=$(grep -e " -spice" ${FILE} |awk '$0 !~ /CONN/' |grep -e "addr=" |cut -d"=" -f 3 |cut -d"," -f 1)
+
+if [[ "${CONN}" == "127.0.0.1" ]]; then
+    # in case of spice tcp
+    echo
+    echo "connect to: spice://127.0.0.1:${SPICE_PORT}"
+    echo
+fi
+
+if [[ "${CONN}" == "/tmp/${NETNAME}/spice.sock" ]]; then
+    # in case of unix socket
+    echo
+    echo "connect to: /tmp/${NETNAME}/spice.sock"
+    echo
+fi
 
 args=(
     -uuid ${UUID}
@@ -33,14 +52,15 @@ args=(
     -rtc base=localtime
     -object iothread,id=iothread0
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=none,format=qcow2,cache=none,aio=io_uring
-    -device virtio-blk-pci,drive=drive0,iothread=iothread0
+    -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
     -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
     -tpmdev emulator,id=tpm0,chardev=chrtpm
     -device tpm-crb,tpmdev=tpm0
     -enable-kvm
-    -object memory-backend-memfd,id=mem1,share=on,size=${MEM}
+    -object memory-backend-memfd,id=mem1,share=on,merge=on,size=${MEM}
     -machine ${MTYPE},${ACCEL}
     -overcommit mem-lock=off
+    #-overcommit cpu-pm=on
     -device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
     -object rng-random,id=objrng0,filename=/dev/urandom
     -device virtio-rng-pci,rng=objrng0,id=rng0
@@ -52,7 +72,8 @@ args=(
     #-device qxl-vga
     #-global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256
     #-spice agent-mouse=off,image-compression=off,jpeg-wan-compression=never,gl=on,rendernode=/dev/dri/renderD128,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on
-    -spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
+    #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
+    -spice agent-mouse=off,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
     -display ${DP}
     -device virtio-serial
     -chardev spicevmc,id=vdagent,debug=0,name=vdagent
@@ -63,8 +84,8 @@ args=(
     -device hda-duplex,audiodev=snd0
     #-device hda-micro,audiodev=pa
     #-device ac97,audiodev=sdl0
-    -device virtio-net-pci,mq=on,packed=on,netdev=net0,mac=${MAC}
-    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
+    -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
+    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
     -usb
     -device usb-ehci,id=usb
     -device usb-tablet
@@ -90,6 +111,6 @@ exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=
 # intel
 #DRI_PRIME=pci-0000_00_02_0 GDK_SCALE=1 GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
 # nvidia
-DRI_PRIME=pci-0000_01_00_0 GDK_SCALE=1 GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+DRI_PRIME=pci-0000_01_00_0 GALLIUM_DRIVER=zink GDK_SCALE=1 GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
 
 exit 0

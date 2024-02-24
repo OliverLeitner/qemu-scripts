@@ -1,5 +1,7 @@
 # QEMU Virtual Machine startup scripts
 
+Readme last updated: 24.02.2024
+
 these are some common startup scripts for my set of vms
 
 ## howto use (granted you have a qcow2 file ready and adopted the scripts to your files and dirs and network IF):
@@ -36,6 +38,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 - rpi.sh:                       Starting a Raspberry PI image generic version
 - rpi-dtb.sh:                   Starting a Raspberry PI 3B image with dtb loaded
 - chromeos.sh (not in use):     ChromeOS Flex current startup script.
+- freedos.sh                    FreeDOS current startup script.
 
 ----------------------------------------------------------------------------
 
@@ -53,7 +56,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 ## requirements:
 
 - HOST: Linux host operating system (in my case: Ubuntu 22.04.2 LTS) with enabled KVM support
-- HOST: Qemu 6.2.0 or newer (qemu-system-x86_64)
+- HOST: Qemu 6.2.0 or newer (qemu-system-x86_64), newer versions might need to switch some device names...
 - HOST: uuid-runtime (uuidgen tool for generating unique process ids)
 - HOST: a bridged network (br0) and a dhcp server, the scripts generate tap interfaces based upon it
 - HOST: tested with an NVIDIA Card (GTX 750, RTX 3050 is what ive been using), INTEL integrated gfx (my cpu has an i915 compatible one...)
@@ -79,7 +82,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 - console access for restarting and handling the vm guests
 - possibility for advanced sandboxing
 - low latency desktop performance due to using egl/virgl
-- vulkan support
+- vulkan support (utilizing MESA zink)
 - opengl rendering through virgl
 - option for EGL and virgl/opengl through spice
 - full network access due to non-userspace networking
@@ -91,13 +94,13 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 
 ## limitations:
 
-- no remote desktop (workaround possible through vnc, nx, xdmcp, rdp...) ... working on this...
+currently none
 
 ## OS specific limitations:
 
 - haiku.sh:
     - no support for gallium/virgl rendering, no real support for qxl or virtio-vga-gl.
-      vmware-svga also seems to be broken, everything reports as vesa.
+      vmware-svga also seems to be broken (reports as vmware, but still vesa performance), everything reports as vesa.
     - for some reason smb shares wont show up in "SMB shares", manual mounting being the only option that works.
     - nfs mounts will crash your haiku system after a few minutes: haikus bad network stack combined with the vesa gfx.
     - smb mounts will crash your haiku system after a few minutes: haikus bad network stack combined with the vesa gfx.
@@ -116,13 +119,13 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
     - screen artifacts in the vm if running non-spice.
 
 - winplay.sh, winplay10.sh:
-    - windows virgl/vulkan support is still limited.
+    - speed is a bit sluggish, even if you tweak windows to its full potential.
 
 - freebsd.sh:
     - freebsd currently neither supports qxl nor virtio gpu's, using vmware-svga meanwhile.
       as a result the experience is slightly sluggish, to get your mouse back from being captured
       use ctrl+alt+g to escape the capturing.
-      workaround: switch to current (qxl in current pkg repo "working" since about 24 hours ago,
+      workaround: switch to current (qxl in current pkg repo "working"),
       however, still not perfect, does not work in sdl (spice only), also basically every desktop
       environment with settings and session management hardcrashes back to login manager...)
       known working window managers: i3, dwm, xmonad
@@ -135,6 +138,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 - openbsd.sh:
     - openbsd does have problems with all sound cards except the usb option.
       also, like with all other bsd's xorg video accel only works with vmware-svga.
+    - the default FFS filesystem is performing rather poorly, use ufs if possible.
 
 - rpi.sh/rpi-dtb.sh:
     - you are obviously limited by the architecture, no kvm accel, not more than 1 Gigabyte of RAM.
@@ -150,6 +154,9 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 
 - https://docs.blissos.org/configuration/configuration-through-command-line-parameters/
 - https://docs.blissos.org/installation/install-in-a-virtual-machine/advanced-qemu-config/
+- https://www.intel.com/content/www/us/en/developer/articles/guide/kvm-tuning-guide-on-xeon-based-systems.html
+- https://developers.redhat.com/articles/2024/02/21/virtio-live-migration-technical-deep-dive#migration_of_the_guest_memory
+- https://www.redhat.com/en/blog/hands-vdpa-what-do-you-do-when-you-aint-got-hardware
 
 ## why?
 

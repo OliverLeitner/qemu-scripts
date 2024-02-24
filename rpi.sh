@@ -19,9 +19,10 @@ args=(
     -smp ${CPU}
     -m ${MEM}
     -kernel ${rasp}/vmlinuz-6.1.0-18-arm64
-    -object memory-backend-memfd,id=mem1,share=on,size=${MEM}
+    -object memory-backend-memfd,id=mem1,share=on,merge=on,size=${MEM}
     -mem-prealloc
     -overcommit mem-lock=off
+    #-overcommit cpu-pm=on
     -device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
     -object rng-random,id=objrng0,filename=/dev/urandom
     -device virtio-rng-pci,rng=objrng0,id=rng0
@@ -30,12 +31,12 @@ args=(
     -device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
     -object iothread,id=iothread0
     -drive id=drive0,file=${rasp}/20231109_raspi_3_bookworm.img,format=raw,media=disk,index=0,if=none,cache=none,cache.direct=off,aio=io_uring
-    -device virtio-blk-pci,drive=drive0,iothread=iothread0
+    -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
     -append "root=LABEL=RASPIROOT rootfstype=ext4 rw fsck.repair=1 net.ifnames=0 cma=64M rootwait console=tty0 console=ttyS1,115200 console=ttyAMA0,115200"
     -initrd ${rasp}/initrd.img-6.1.0-18-arm64
     -usb
-    -device virtio-net-pci,netdev=net0
-    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
+    -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
+    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
 )
 
 # check if the bridge is up, if not, dont let us pass here

@@ -13,6 +13,7 @@ NV_RENDER=/dev/dri/by-path/pci-0000:01:00.0-render
 #DP=sdl,gl=on,show-cursor=off
 DP=egl-headless,rendernode=${NV_RENDER} #rendernode=/dev/dri/by-path/pci-0000:00:02.0-render
 #DP=sdl,gl=on
+SPICE_PORT=5960
 #SHMEM=ivshmem-plain,memdev=hostmem
 #MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=off,hmat=on
 MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=off,hmat=on,memory-backend=mem1
@@ -23,6 +24,24 @@ UUID="$(uuidgen)"
 CPU=2,maxcpus=2,dies=1,cores=2,sockets=1,threads=1
 ISODIR=/applications/OS/isos
 VMDIR=/virtualisation
+
+# some help output
+FILE=`basename "$0"`
+CONN=$(grep -e " -spice" ${FILE} |awk '$0 !~ /CONN/' |grep -e "addr=" |cut -d"=" -f 3 |cut -d"," -f 1)
+
+if [[ "${CONN}" == "127.0.0.1" ]]; then
+    # in case of spice tcp
+    echo
+    echo "connect to: spice://127.0.0.1:${SPICE_PORT}"
+    echo
+fi
+
+if [[ "${CONN}" == "/tmp/${NETNAME}/spice.sock" ]]; then
+    # in case of unix socket
+    echo
+    echo "connect to: /tmp/${NETNAME}/spice.sock"
+    echo
+fi
 
 args=(
     -uuid ${UUID}
@@ -50,15 +69,16 @@ args=(
     #-drive "if=pflash,format=raw,file=/tmp/${NETNAME}/my_vars.fd"
     #-drive file=${ISODIR}/bsd/install74.iso,media=cdrom
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,media=disk,if=none,format=qcow2,cache=none,aio=io_uring,cache.direct=off
-    -device virtio-blk-pci,drive=drive0,iothread=iothread0
+    -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
     #-chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
     #-tpmdev emulator,id=tpm0,chardev=chrtpm
     #-device tpm-crb,tpmdev=tpm0
     -enable-kvm
-    -object memory-backend-memfd,id=mem1,share=on,size=${MEM}
+    -object memory-backend-memfd,id=mem1,share=on,merge=on,size=${MEM}
     -machine ${MTYPE},${ACCEL}
     #-object memory-backend-file,size=${MEM},share=on,mem-path=/dev/shm/ivshmem,id=hostmem
     -overcommit mem-lock=off
+    #-overcommit cpu-pm=on
     #-device ${SHMEM}
     -device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
     -object rng-random,id=objrng0,filename=/dev/urandom
@@ -80,10 +100,11 @@ args=(
     # vmware-svga is the current stable thing to do on freebsd, it aint perfect (system load) but its the most stable
     -device vmware-svga
     -global vmware-svga.vgamem_mb=512
-    -spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
+    #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
+    -spice agent-mouse=off,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
     -display ${DP}
-    -device virtio-net-pci,mq=on,packed=on,netdev=net0,mac=${MAC}
-    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
+    -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
+    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
     #-audiodev pa,id=snd0,server=unix:/run/user/1000/pulse/native,out.mixing-engine=off
     -audiodev sdl,id=snd0
     #-device intel-hda
@@ -135,7 +156,7 @@ fi
 # intel
 #QEMU_AUDI_DRV="sdl" DRI_PRIME=pci-0000_00_02_0 GDK_SCALE=1 GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
 # nvidia
-QEMU_AUDIO_DRV="sdl" DRI_PRIME=pci-0000_01_00_0 GDK_SCALE=1 GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+QEMU_AUDIO_DRV="sdl" DRI_PRIME=pci-0000_01_00_0 GALLIUM_DRIVER=zink GDK_SCALE=1 GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
 
 #close up script
 exit 0

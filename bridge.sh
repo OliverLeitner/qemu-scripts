@@ -8,6 +8,8 @@ BRIDGE_IF=br0
 STARTSCRIPT_DIR=~/scripts
 # cuts the info out we need for a listing
 MACHINELIST=`grep NETNAME= ${STARTSCRIPT_DIR}/*.sh | cut -d'=' -f1 | gawk -F. '{ print $1 }' | sed -e 's/bridge//' | gawk -F/ '{ print $NF }'`
+# gets the mac of the machine for handling
+MAC=$(grep -e "${NAME}=" macs.txt |cut -d"=" -f 2)
 
 function delete_bridge() {
     sudo ip link delete tap0-${NAME}
@@ -20,6 +22,8 @@ function create_bridge() {
     #if [[ ${NAME} == haiku ]]; then
     #    sudo ip addr add 192.168.2.238/24 brd + dev tap0-${NAME}
     #fi
+    # vdpa support
+    #vdpa dev add name vdpa-${NAME} mgmtdev vdpasim_net ${MAC}
 }
 
 # if machinename was found, we do machine stuff
