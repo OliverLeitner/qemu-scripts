@@ -76,7 +76,7 @@ args=(
     #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
     #-spice agent-mouse=off,plaintext-channel=default,seamless-migration=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on
     #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
-    -spice agent-mouse=off,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
+    -spice agent-mouse=on,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
     -display ${DP}
     -device virtio-serial
     -chardev spicevmc,id=vdagent,debug=0,name=vdagent
@@ -90,7 +90,7 @@ args=(
     #-netdev type=vhost-vdpa,vhostdev=/dev/vdpa-${NETNAME},id=net0
     -usb
     #-device usb-ehci,id=usb
-    -device usb-tablet
+    #-device usb-tablet
     -monitor stdio
     # below is a qemu api scriptable via json
     -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off

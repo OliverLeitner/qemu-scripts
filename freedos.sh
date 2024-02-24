@@ -63,7 +63,6 @@ args=(
     -global kvm-pit.lost_tick_policy=delay
     -mem-prealloc
     -rtc base=localtime
-    #-object iothread,id=iothread0
     -boot order=c,menu=on,strict=on,splash-time=20000
     -object iothread,id=iothread0
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,media=disk,format=qcow2,index=0,if=none,cache=none,cache.direct=off,aio=io_uring
@@ -87,8 +86,8 @@ args=(
     #-object rng-random,id=objrng0,filename=/dev/urandom
     #-device virtio-rng-pci,rng=objrng0,id=rng0,max-bytes=1024,period=1000
     #-device intel-iommu
-    -device virtio-serial-pci
-    -device virtio-serial
+    #-device virtio-serial-pci
+    #-device virtio-serial
     #-chardev socket,id=agent0,path="/tmp/${NETNAME}/${NETNAME}-agent.sock",server=on,wait=off
     #-device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
     #-chardev spicevmc,id=vdagent0,name=vdagent
@@ -104,11 +103,11 @@ args=(
     #-device vmware-svga
     #-global vmware-svga.vgamem_mb=2
     #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
-    -spice agent-mouse=off,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
+    -spice agent-mouse=on,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
     -display ${DP}
-    -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
+    #-device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
-    #-device pcnet,netdev=net0,mac=${MAC}
+    -device pcnet,netdev=net0,mac=${MAC}
     # working nics: e1000 (instable), usb-net (super slow), pcnet (even slower), rtl8139, virtio-net-pci (instable)
     #-device rtl8139,netdev=net0,mac=${MAC} #,mq=on,packed=on
     #-netdev user,id=net0,ipv6=off
@@ -122,6 +121,8 @@ args=(
     -device gus
     -device adlib
     #-usb
+    #-device nec-usb-xhci
+    #-device usb-tablet
     #-device usb-kbd
     #-device usb-mouse
     #-device virtio-keyboard-pci

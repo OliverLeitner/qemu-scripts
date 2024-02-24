@@ -82,14 +82,14 @@ args=(
     -chardev pty,id=charserial0
     -device isa-serial,chardev=charserial0,id=serial0
     -chardev spicevmc,id=charchannel0,name=vdagent
-    -device virtio-vga-gl,edid=on #,xres=1920,yres=1080
+    #-device virtio-vga-gl,edid=on #,xres=1920,yres=1080
     #-device virtio-vga
     #-vga none
-    #-device qxl-vga
-    #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
+    -device qxl-vga
+    -global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
     #-spice agent-mouse=off,plaintext-channel=default,seamless-migration=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on
     #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
-    -spice agent-mouse=off,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
+    -spice agent-mouse=on,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
     -display ${DP}
     -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
@@ -100,8 +100,8 @@ args=(
     #-device hda-micro,audiodev=pa
     -device ac97,audiodev=pa
     -usb
-    -device nec-usb-xhci
-    -device usb-tablet
+    #-device nec-usb-xhci
+    #-device usb-tablet
     #-device virtio-tablet-pci
     #-device virtio-mouse-pci
     #-device usb-mouse

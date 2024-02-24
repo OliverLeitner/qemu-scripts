@@ -82,14 +82,11 @@ args=(
     #-vga virtio
     #-device qxl-vga
     #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
-    -device virtio-vga-gl,edid=on
+    -device virtio-vga-gl,edid=on,xres=1920,yres=1080
     #-spice agent-mouse=off,image-compression=off,jpeg-wan-compression=never,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on
     #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
     -spice agent-mouse=off,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
     -display ${DP}
-    -chardev pty,id=charserial0
-    -device isa-serial,chardev=charserial0,id=serial0
-    -chardev spicevmc,id=charchannel0,name=vdagent
     #-usb
     #-device usb-ehci,id=usb
     #-device usb-tablet

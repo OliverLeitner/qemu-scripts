@@ -90,7 +90,7 @@ args=(
     -device hda-duplex,audiodev=snd0
     #-device hda-micro,audiodev=pa
     -usb
-    #-device usb-ehci,id=usb
+    -device usb-ehci,id=usb
     -device usb-tablet
     -monitor stdio
     # below is a qemu api scriptable via json
