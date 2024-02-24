@@ -1,12 +1,11 @@
 #!/bin/bash
 BOOT_BIN=/usr/bin/qemu-system-aarch64
-NETNAME=rpi
+MEM=1G
+NETNAME=$(basename $0 |cut -d"." -f 1)
 MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
-HOSTNAME=${NETNAME}
 rasp=/virtualisation/rpi
 CPU=2,maxcpus=2,cores=2,sockets=1,threads=1
 UUID="$(uuidgen)"
-MEM=1G
 
 # from boot/cmdline.txt
 #console=tty0 console=ttyS1,115200 root=LABEL=RASPIROOT rw fsck.repair=yes net.ifnames=0 cma=64M rootwait

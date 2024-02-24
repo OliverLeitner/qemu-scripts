@@ -1,16 +1,15 @@
 #!/bin/bash
 BOOT_BIN=/usr/bin/qemu-system-x86_64
-NETNAME=debian
-MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
-HOSTNAME=${NETNAME}
+SPICE_PORT=5940
 MEM=4G
 # intel render node
 GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
 # nvidia render node
 NV_RENDER=/dev/dri/by-path/pci-0000:01:00.0-render
+NETNAME=$(basename $0 |cut -d"." -f 1)
+MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 #DP=sdl,gl=on
 DP=egl-headless,rendernode=${NV_RENDER} #rendernode=/dev/dri/by-path/pci-0000:00:02.0-render
-SPICE_PORT=5940
 #SHMEM=ivshmem-plain,memdev=hostmem
 MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=off,nvdimm=off,hmat=on,memory-backend=mem1
 ACCEL=accel=kvm #,kvm-shadow-mem=256000000
@@ -23,8 +22,7 @@ UUID="$(uuidgen)"
 MDEV_DEVICE="/sys/class/mdev_bus/0000:00:02.0/mdev_supported_types/i915-GVTg_V5_4"
 
 # some help output
-FILE=`basename "$0"`
-CONN=$(grep -e " -spice" ${FILE} |awk '$0 !~ /CONN/' |grep -e "addr=" |cut -d"=" -f 3 |cut -d"," -f 1)
+CONN=$(grep -e " -spice" ${NETNAME}.sh |awk '$0 !~ /CONN/' |grep -e "addr=" |cut -d"=" -f 3 |cut -d"," -f 1)
 
 if [[ "${CONN}" == "127.0.0.1" ]]; then
     # in case of spice tcp

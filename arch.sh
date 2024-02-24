@@ -1,16 +1,15 @@
 #!/bin/bash
 BOOT_BIN=/usr/bin/qemu-system-x86_64
-NETNAME=arch
-MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
-HOSTNAME=${NETNAME}
 MEM=4G
+SPICE_PORT=5920
 # intel render node
 GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
 # nvidia render node
 NV_RENDER=/dev/dri/by-path/pci-0000:01:00.0-render
+NETNAME=$(basename $0 |cut -d"." -f 1)
+MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 #DP=sdl,gl=on
 DP=egl-headless,rendernode=${NV_RENDER} #rendernode=/dev/dri/by-path/pci-0000:00:02.0-render
-SPICE_PORT=5920
 MTYPE=pc-q35-6.2,dump-guest-core=off,mem-merge=on,smm=on,vmport=off,nvdimm=off,hmat=on,memory-backend=mem1 #,accel=kvm
 ACCEL=accel=kvm #,kvm-shadow-mem=256000000,kernel_irqchip=on
 UUID="$(uuidgen)"
@@ -21,8 +20,7 @@ VMDIR=/virtualisation
 VARS=${VMDIR}/ovmf/OVMF_VARS-${NETNAME}.fd
 
 # some help output
-FILE=`basename "$0"`
-CONN=$(grep -e " -spice" ${FILE} |awk '$0 !~ /CONN/' |grep -e "addr=" |cut -d"=" -f 3 |cut -d"," -f 1)
+CONN=$(grep -e " -spice" ${NETNAME}.sh |awk '$0 !~ /CONN/' |grep -e "addr=" |cut -d"=" -f 3 |cut -d"," -f 1)
 
 if [[ "${CONN}" == "127.0.0.1" ]]; then
     # in case of spice tcp
