@@ -88,6 +88,9 @@ args=(
     -device usb-ehci,id=usb
     -device usb-tablet
     -monitor stdio
+    # below is a qemu api scriptable via json
+    -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
+    -mon chardev=qmp,mode=control,pretty=on
     -sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
     -k de
 )

@@ -37,6 +37,10 @@ if [[ "${CONN}" == *"spice.sock" ]]; then
 fi
 
 args=(
+    # gdb wrapper -s -S (advanced debugging)
+    # to boot into the vm with those options, youll need to issue a 'c' and enter at the qemu shell for the machine to 'continue'
+    #-s
+    #-S
     -uuid ${UUID}
     -name ${NETNAME},process=${NETNAME}
     -pidfile "/tmp/${NETNAME}/${NETNAME}.pid"
@@ -88,6 +92,9 @@ args=(
     #-device usb-ehci,id=usb
     -device usb-tablet
     -monitor stdio
+    # below is a qemu api scriptable via json
+    -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
+    -mon chardev=qmp,mode=control,pretty=on
     -sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
     -k de
 )

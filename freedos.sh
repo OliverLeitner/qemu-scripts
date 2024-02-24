@@ -15,7 +15,7 @@ DP=egl-headless,rendernode=${NV_RENDER} #rendernode=/dev/dri/by-path/pci-0000:00
 #MTYPE=q35
 #,memory-backend=mem1
 #MTYPE=q35,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=off,hmat=on,memory-backend=mem1
-MTYPE=pc,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=on,hmat=on,memory-backend=mem1
+MTYPE=pc,dump-guest-core=off,mem-merge=on,smm=on,vmport=auto,nvdimm=off,hmat=off,memory-backend=mem1
 ACCEL=accel=kvm #,kernel_irqchip=on
 CPU=1,maxcpus=1,cores=1,sockets=1,threads=1
 BIOS=/usr/share/OVMF/OVMF_CODE.fd
@@ -103,8 +103,8 @@ args=(
     #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
     #-device vmware-svga
     #-global vmware-svga.vgamem_mb=2
-    #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on #,rendernode=${NV_RENDER}
-    -spice agent-mouse=off,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off #,rendernode=${NV_RENDER}
+    #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
+    -spice agent-mouse=off,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${NV_RENDER}
     -display ${DP}
     -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
@@ -127,6 +127,9 @@ args=(
     #-device virtio-keyboard-pci
     #-device virtio-mouse-pci
     -monitor stdio
+    # below is a qemu api scriptable via json
+    -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
+    -mon chardev=qmp,mode=control,pretty=on
     -sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
     -k de
 )

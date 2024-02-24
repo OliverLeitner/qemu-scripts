@@ -55,9 +55,13 @@ if [[ $MACHINELIST == *$NAME* ]]; then
     exit 0
 fi
 
-
 # if name is not a machine, its probably something else
 case $NAME in
+    ls)
+        echo available machines:
+        echo $MACHINELIST
+        exit 0
+    ;;
     list)
         echo available machines:
         echo $MACHINELIST

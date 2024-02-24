@@ -36,6 +36,9 @@ args=(
     -usb
     -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
+    # below is a qemu api scriptable via json
+    -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
+    -mon chardev=qmp,mode=control,pretty=on
 )
 
 # check if the bridge is up, if not, dont let us pass here

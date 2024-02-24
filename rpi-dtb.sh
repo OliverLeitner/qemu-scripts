@@ -30,6 +30,9 @@ args=(
     -usb
     -device usb-net,netdev=net0
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
+    # below is a qemu api scriptable via json
+    -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
+    -mon chardev=qmp,mode=control,pretty=on
 )
 
 # check if the bridge is up, if not, dont let us pass here
