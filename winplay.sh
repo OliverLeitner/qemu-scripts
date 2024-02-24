@@ -10,7 +10,7 @@ NETNAME=$(basename $0 |cut -d"." -f 1)
 MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 #DP=sdl,gl=on,show-cursor=off
 # card0 is intel, card1 is nvidia
-DP=egl-headless,rendernode=${NV_RENDER} #rendernode=/dev/dri/by-path/pci-0000:00:02.0-render
+DP=egl-headless,show-cursor=off,rendernode=${NV_RENDER} #rendernode=/dev/dri/by-path/pci-0000:00:02.0-render
 #DP=spice-app,gl=on
 #SHMEM=ivshmem-plain,memdev=hostmem
 #MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=off,hmat=on
@@ -58,7 +58,7 @@ args=(
     #-drive file=${ISODIR}/virtio-win.iso,media=cdrom
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,media=disk,if=none,cache=none,cache.direct=off,aio=io_uring
     -device virtio-blk-pci,id=blk0,drive=drive0,num-queues=4,iothread=iothread0
-    -set device.blk0.discard_granularity=0
+    #-set device.blk0.discard_granularity=0
     -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
     -tpmdev emulator,id=tpm0,chardev=chrtpm
     -device tpm-crb,tpmdev=tpm0
@@ -100,9 +100,9 @@ args=(
     #-device hda-micro,audiodev=pa
     -device ac97,audiodev=pa
     -usb
-    #-device nec-usb-xhci
-    #-device usb-tablet
-    -device virtio-tablet-pci
+    -device nec-usb-xhci
+    -device usb-tablet
+    #-device virtio-tablet-pci
     #-device virtio-mouse-pci
     #-device usb-mouse
     #-device vmmouse
