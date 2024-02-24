@@ -29,10 +29,10 @@ if [[ "${CONN}" == "127.0.0.1" ]]; then
     echo
 fi
 
-if [[ "${CONN}" == "/tmp/${NETNAME}/spice.sock" ]]; then
+if [[ "${CONN}" == *"spice.sock" ]]; then
     # in case of unix socket
     echo
-    echo "connect to: /tmp/${NETNAME}/spice.sock"
+    echo "connect to: spice+unix:///tmp/${NETNAME}/spice.sock"
     echo
 fi
 
