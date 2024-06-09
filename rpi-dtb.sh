@@ -2,6 +2,7 @@
 BOOT_BIN=/usr/bin/qemu-system-aarch64
 MEM=1G
 NETNAME=$(basename $0 |cut -d"." -f 1)
+#NETNAME=rpi
 MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 rasp=/virtualisation/rpi
 CPU=4,maxcpus=4,cores=4,sockets=1,threads=1
@@ -25,10 +26,15 @@ args=(
     -dtb ${rasp}/bcm2837-rpi-3-b.dtb
     -kernel ${rasp}/vmlinuz-6.1.0-18-arm64
     -drive file=${rasp}/20231109_raspi_3_bookworm.img,index=0,media=disk,if=sd,cache=none,cache.direct=off,aio=io_uring,format=raw
-    -append "root=LABEL=RASPIROOT rootfstype=ext4 rw fsck.repair=1 net.ifnames=0 cma=64M rootwait console=tty0 console=ttyS1,115200 console=ttyAMA0,115200"
+    -append "root=LABEL=RASPIROOT rootfstype=ext4 rw fsck.repair=1 net.ifnames=0 cma=64M dwc_otg.lpm_enable=0 rootwait console=tty0 console=ttyS1,115200 console=ttyAMA0,115200 ipv6.disable=1"
     -initrd ${rasp}/initrd.img-6.1.0-18-arm64
+    # network just doesnt work currently with dtb on
     -usb
     -device usb-net,netdev=net0
+    #-netdev user,id=net-usb1,restrict=on
+    #-device usb-net,netdev=net-usb1
+    #-device ne2k_pci,netdev=net0
+    #-netdev user,id=net0,hostfwd=tcp::5555-:22
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
     # below is a qemu api scriptable via json
     -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
@@ -46,6 +52,6 @@ if [ ! -d "/tmp/${NETNAME}" ]; then
     mkdir /tmp/${NETNAME}
 fi
 
-GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+${BOOT_BIN} "${args[@]}"
 
 exit 0

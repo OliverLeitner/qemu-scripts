@@ -12,7 +12,7 @@ RECOVERY_MODE=$3
 # ---------------- settings start ------------------
 BOOT_BIN=/usr/bin/qemu-system-x86_64
 MEM=4G
-SPICE_PORT=5920
+SPICE_PORT=6000
 # intel render node
 GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
 # nvidia render node
@@ -23,19 +23,21 @@ fi
 NETNAME=$(basename $0 |cut -d"." -f 1)
 MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 SPICE_MODE=agent-mouse=on,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${RENDER}
-#DP=sdl,gl=on
+#DP=sdl,gl=on,show-cursor=off
 DP=egl-headless,rendernode=${RENDER}
-MTYPE=pc-q35-6.2,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=on,hmat=on,memory-backend=mem1 #,accel=kvm
-ACCEL=accel=kvm #,kvm-shadow-mem=256000000,kernel_irqchip=on
-UUID="$(uuidgen)"
+MTYPE=pc,dump-guest-core=off,mem-merge=on,smm=on,vmport=auto,nvdimm=off,hmat=on,memory-backend=mem1
+ACCEL=accel=kvm #,kernel_irqchip=on
 CPU=2,maxcpus=2,cores=2,sockets=1,threads=1
 BIOS=/usr/share/OVMF/OVMF_CODE.fd
+SEABIOS=/usr/share/seabios
+VARS=${VMDIR}/ovmf/OVMF_VARS-${NETNAME}.fd
+UUID="$(uuidgen)"
 # path to the operating system iso
 ISODIR=/data/isos/os
 # path to the vm image
 VMDIR=/virtualisation
 # path to our recovery iso
-RECOVERYISO=/data/isos/systemrescue-11.01-amd64.iso
+RECOVERYISO=/data/isos/HBCD_PE_x64.iso
 # ---------------- settings end ------------------
 
 # lets have some commandline help
@@ -56,7 +58,7 @@ fi
 # preparing recovery mode
 RECOVERYINFO=
 if [[ ${RECOVERY_MODE} == *"recovery"* ]]; then
-    RECOVERYINFO="-boot order=d,menu=on,strict=on,splash-time=30 -drive id=drive1,file=${RECOVERYISO},index=1,media=cdrom"
+    RECOVERYINFO="-boot order=d,menu=on,strict=on,splash-time=30 -drive id=drive1,file=${RECOVERYISO},index=1,media=cdrom -drive file=${ISODIR}/virtio-win-0.1.173.iso,media=cdrom,index=2,format=raw"
 fi
 
 # output the connection string for help
@@ -80,47 +82,63 @@ if [[ "${CONN}" == *"spice.sock" ]]; then
 fi
 
 args=(
-    # gdb wrapper -s -S (advanced debugging)
-    # to boot into the vm with those options, youll need to issue a 'c' and enter at the qemu shell for the machine to 'continue'
-    #-s
-    #-S
+    -nodefaults
     -uuid ${UUID}
     -name ${NETNAME},process=${NETNAME},debug-threads=on
     -pidfile "/tmp/${NETNAME}/${NETNAME}.pid"
-    -no-user-config
-    -cpu host,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890,kvm=on,pcid=off,spec-ctrl=off
+    #-parallel none
+    #-serial none
+    #-no-user-config
+    #-no-acpi
+    -cpu host,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,vmware-cpuid-freq=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890,kvm=on,pcid=off,spec-ctrl=off
     -smp ${CPU}
     -m ${MEM}
+    #-bios ${SEABIOS}/bios.bin
+    -L ${SEABIOS}/
     -smbios type=2,manufacturer="oliver",product="${NETNAME}starter",version="0.1",serial="0xDEADBEEF",location="github.com",asset="${NETNAME}"
-    -mem-prealloc
+    #-global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off
     #-global kvm-pit.lost_tick_policy=delay
-    #-rtc base=localtime
+    -mem-prealloc
+    -rtc base=localtime
+    -boot order=c,menu=on,strict=on,splash-time=20000
     -object iothread,id=iothread0
     # recovery mode
     ${RECOVERYINFO}
-    -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=none,format=qcow2,cache=none,cache.direct=off,aio=io_uring
+    #-device virtio-scsi-pci,id=scsi,iothread=iothread0
+    #-device scsi-hd,drive=drive1
+    -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,format=qcow2,index=0,if=none,cache=none,cache.direct=off,aio=io_uring
+    # one needs to install winxp first onto standard virtio, the jumper helps with conversion to sd later on
+    #-drive id=drive1,file=${VMDIR}/winxpjumper.qcow2,media=disk,format=qcow2,index=1,if=none,cache=none,cache.direct=off,aio=io_uring
     -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
-    -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
-    -tpmdev emulator,id=tpm0,chardev=chrtpm
-    -device tpm-crb,tpmdev=tpm0
+    #-drive file=${ISODIR}/os/winxp/en_windows_xp_professional_with_service_pack_3_x86_cd_vl_x14-73974.iso,media=cdrom,index=2,format=raw
+    #-drive file=${ISODIR}/virtio-win-0.1.173.iso,media=cdrom,index=3,format=raw
+    #-hdb fat:rw:${HOSTDIR}
+    #-device usb-storage,drive=shared0
+    #-drive file=fat:rw:/data/isos/shared,id=shared0,format=raw,if=none
+    #-device usb-storage,drive=shared1
+    #-drive file=fat:rw:/data/isos/shared-2,id=shared1,format=raw,if=none
+    #-chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
+    #-tpmdev emulator,id=tpm0,chardev=chrtpm
+    #-device tpm-crb,tpmdev=tpm0
+    #-device vmcoreinfo
+    #-device vmgenid
     -enable-kvm
     -object memory-backend-memfd,id=mem1,share=on,merge=on,size=${MEM}
     -machine ${MTYPE},${ACCEL}
+    #-object memory-backend-file,size=4G,share=on,mem-path=/dev/shm/ivshmem,id=hostmem
     -overcommit mem-lock=off
     #-overcommit cpu-pm=on
+    #-device ${SHMEM}
     -device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
     -object rng-random,id=objrng0,filename=/dev/urandom
-    -device virtio-rng-pci,rng=objrng0,id=rng0
-    -device intel-iommu
+    -device virtio-rng-pci,rng=objrng0,id=rng0,max-bytes=1024,period=1000
+    #-device intel-iommu
     -device virtio-serial-pci
-    -device virtio-serial
+    #-device virtio-serial
     -chardev socket,id=agent0,path="/tmp/${NETNAME}/${NETNAME}-agent.sock",server=on,wait=off
     -device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
-    -chardev spicevmc,id=vdagent,debug=0,name=vdagent
-    -device virtserialport,chardev=vdagent,name=com.redhat.spice.0
-    -chardev pty,id=charserial0
-    -device isa-serial,chardev=charserial0,id=serial0
-    -chardev spicevmc,id=charchannel0,name=vdagent
+    -chardev spicevmc,id=vdagent0,name=vdagent
+    -device virtserialport,chardev=vdagent0,name=com.redhat.spice.0
     # usb redirect
     #-readconfig /etc/qemu/ich9-ehci-uhci.cfg
     -chardev spicevmc,name=usbredir,id=usbredirchardev1
@@ -129,22 +147,40 @@ args=(
     -device usb-redir,chardev=usbredirchardev2,id=usbredirdev2,debug=0
     -chardev spicevmc,name=usbredir,id=usbredirchardev3
     -device usb-redir,chardev=usbredirchardev3,id=usbredirdev3,debug=0
-    -device virtio-vga-gl,edid=on #,xres=1920,yres=1080
+    #-device virtio-vga-gl,edid=on,xres=1920,yres=1080
+    #-device virtio-gpu-gl-pci,edid=on
+    #-device cirrus-vga
+    #-device ati-vga,model=rage128p
+    #-device VGA
     #-vga none
-    #-device qxl-vga
-    #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
+    -device qxl-vga
+    -global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
+    #-device vmware-svga
+    #-global vmware-svga.vgamem_mb=2
+    #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
     -spice ${SPICE_MODE}
     -display ${DP}
-    -audiodev ${AUDIO_SERVER}
-    -device ich9-intel-hda
-    -device hda-duplex,audiodev=snd0
-    #-device hda-micro,audiodev=pa
-    -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
+    -device virtio-net-pci,netdev=net0,mac=${MAC},rombar=0,packed=on,rx_queue_size=256,tx_queue_size=256,disable-modern=off,page-per-vq=on
+    #-device rtl8139,rombar=0,netdev=net0,mac=${MAC}
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
-    #-netdev type=vhost-vdpa,vhostdev=/dev/vdpa-${NETNAME},id=net0
+    #-netdev user,id=net0,ipv6=off
+    #-audiodev sdl,id=snd0
+    -audiodev ${AUDIO_SERVER}
+    #-device intel-hda
+    #-device hda-duplex,audiodev=snd0
+    #-audiodev sdl,id=sdl0
+    -device ac97,audiodev=snd0
+    #-device sb16 #,audiodev=snd0
+    #-device gus
+    #-device adlib
     -usb
-    #-device usb-ehci,id=usb
-    #-device usb-tablet
+    -device usb-ehci
+    #-device piix3-usb-uhci
+    -device usb-tablet
+    #-device usb-kbd
+    #-device usb-mouse
+    #-device virtio-keyboard-pci
+    #-device virtio-mouse-pci
     -monitor stdio
     # below is a qemu api scriptable via json
     -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
@@ -171,15 +207,15 @@ if [ ! -d "/tmp/${NETNAME}" ]; then
 fi
 
 # get tpm going
-exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
+#exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
 
 # for a gpu, we have two choices, either intel or nvidia, defaults to nvidia
 if [[ ${GPU_MODE} == *"intel"* ]]; then
     # intel
-    DRI_PRIME=pci-0000_00_02_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
+    DRI_PRIME=pci-0000_00_02_0 VIRGL_RENDERER_ASYNC_FENCE_CB=1 VAAPI_MPEG4_ENABLED=true VGL_READBACK=bpo __GLX_VENDOR_LIBRARY_NAME=mesa GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
 else
-    # nvidia, we dont use primus or bumblebee, but env vars (i tend to deinstall bumblebee and primus stuff...)
-    __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+    # nvidia
+    _VIRGL_RENDERER_ASYNC_FENCE_CB=1 _NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true VGL_READBACK=pbo __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
 fi
 
 exit 0

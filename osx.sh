@@ -1,107 +1,176 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [recovery]
 
-# Special thanks to:
-# https://github.com/Leoyzen/KVM-Opencore
-# https://github.com/thenickdude/KVM-Opencore/
-# https://github.com/qemu/qemu/blob/master/docs/usb2.txt
-#
-# qemu-img create -f qcow2 mac_hdd_ng.img 128G
-#
-# echo 1 > /sys/module/kvm/parameters/ignore_msrs (this is required)
+# including help function library
+source "./help.sh"
 
-############################################################################
-# NOTE: Tweak the "MY_OPTIONS" line in case you are having booting problems!
-############################################################################
+# commandline parameters
+GPU_MODE=$1
+GFX_BACKEND=$2
+RECOVERY_MODE=$3
 
-#MY_OPTIONS="+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890"
-MY_OPTIONS="kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890"
-
-REPO_PATH="/storage/git/OSX-KVM"
-OVMF_DIR="/storage/git/OSX-KVM"
-
+# ---------------- settings start ------------------
 BOOT_BIN=/usr/bin/qemu-system-x86_64
-NETNAME=osx
-MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
-HOSTNAME=${NETNAME}
 MEM=8G
-DP=sdl,gl=on
-#SHMEM=ivshmem-plain,memdev=hostmem
-#MTYPE=pc
-MTYPE=q35
-#MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=auto,nvdimm=off,hmat=on,memory-backend=mem1
-#MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=auto,nvdimm=off,hmat=on
-#ACCEL=kvm-shadow-mem=256000000
+SPICE_PORT=6050
+# intel render node
+GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
+# nvidia render node
+RENDER=/dev/dri/by-path/pci-0000:01:00.0-render
+if [[ ${GPU_MODE} == *"intel"* ]]; then
+    RENDER=${GVT_RENDER}
+fi
+NETNAME=$(basename $0 |cut -d"." -f 1)
+MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
+SPICE_MODE=agent-mouse=on,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${RENDER}
+#DP=sdl,gl=on
+DP=egl-headless,rendernode=${RENDER}
+MTYPE=q35,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=on,hmat=on,memory-backend=mem1
+ACCEL=accel=kvm,kernel_irqchip=on #,kvm-shadow-mem=256000000
 UUID="$(uuidgen)"
-CPU=2,maxcpus=2,dies=1,cores=2,sockets=1,threads=1
+CPU=2,maxcpus=2,cores=2,sockets=1,threads=1
+# path to the operating system iso
+ISODIR=/data/isos/os
+# path to the vm image
 VMDIR=/virtualisation
+# path to our recovery iso
+RECOVERYISO=/path/to/recovery.iso
+# ---------------- settings end ------------------
 
-# shellcheck disable=SC2054
+# lets have some commandline help
+case ${GPU_MODE} in
+    help|--help|-h|"")
+        help_vm
+        exit 1
+    ;;
+esac
+
+# preparing the correct host sound server
+# defaults to pulseaudio
+AUDIO_SERVER=pa,id=snd0,server=unix:/run/user/1000/pulse/native,out.mixing-engine=off
+if [[ $(pactl info | grep "PipeWire") != "" ]]; then
+    AUDIO_SERVER=pipewire,id=snd0
+fi
+
+# preparing recovery mode
+RECOVERYINFO=
+if [[ ${RECOVERY_MODE} == *"recovery"* ]]; then
+    RECOVERYINFO="-boot order=d,menu=on,strict=on,splash-time=30 -drive id=drive1,file=${RECOVERYISO},index=1,media=cdrom"
+fi
+
+# output the connection string for help
+CONN=$(echo ${SPICE_MODE} |grep -e 'addr=' |cut -d"=" -f 3 |cut -d"," -f 1)
+
+# if we are using spice, we listen on localhost, you can still setup a remote conn via ssh tunneling
+if [[ "${CONN}" == "127.0.0.1" ]]; then
+    # in case of spice tcp
+    echo
+    echo "connect to: spice://127.0.0.1:${SPICE_PORT}"
+    echo
+fi
+
+# if we are on a unix socket, you can still forward via ssh, basically both option including the above
+# work for remote access if forwarded, i prefer a vpn solution rather than ssh though
+if [[ "${CONN}" == *"spice.sock" ]]; then
+    # in case of unix socket
+    echo
+    echo "connect to: spice+unix:///tmp/${NETNAME}/spice.sock"
+    echo
+fi
+
 args=(
-  -uuid ${UUID}
-  -name ${NETNAME},process=${NETNAME}
-  -pidfile "/tmp/${NETNAME}/${NETNAME}.pid"
-  -parallel none
-  -serial none
-  -enable-kvm
-  -m ${MEM}
-  -cpu host,${MY_OPTIONS}
-  #-cpu host
-  -machine ${MTYPE} #,${ACCEL}
-  #-machine ${MTYPE}
-  #-mem-prealloc
-  -rtc base=localtime
-  #-object rng-random,id=objrng0,filename=/dev/urandom
-  #-device virtio-rng-pci,rng=objrng0,id=rng0
-  #-device virtio-serial-pci
-  #-chardev pty,id=charserial0
-  #-device isa-serial,chardev=charserial0,id=serial0
-  -device ich9-intel-hda -device hda-duplex
-  #-usb -device usb-kbd -device virtio-tablet
-  #-usb -device usb-ehci,id=usb -device usb-kbd -device usb-tablet
-  -usb -device usb-kbd -device usb-tablet
-  #-chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
-  #-tpmdev emulator,id=tpm0,chardev=chrtpm
-  #-device tpm-crb,tpmdev=tpm0
-  -smp ${CPU}
-  #-device nec-usb-xhci,id=xhci
-  #-global nec-usb-xhci.msi=off
-  # -device usb-host,vendorid=0x8086,productid=0x0808  # 2 USD USB Sound Card
-  # -device usb-host,vendorid=0x1b3f,productid=0x2008  # Another 2 USD USB Sound Card
-  -device isa-applesmc,osk="$(cat osxkey.txt)"
-  -drive if=pflash,format=raw,readonly=on,file="$REPO_PATH/OVMF_CODE.fd"
-  -drive if=pflash,format=raw,file="$REPO_PATH/OVMF_VARS-1024x768.fd"
-  #-smbios type=2,manufacturer="oliver",product="${NETNAME}starter",version="0.1",serial="0xDEADBEEF",location="github.com",asset="${NETNAME}" \
-  -device ich9-ahci,id=sata
-  -drive id=OpenCoreBoot,index=0,if=none,snapshot=on,format=qcow2,file="$REPO_PATH/OpenCore/OpenCore.qcow2"
-  -device ide-hd,bus=sata.2,drive=OpenCoreBoot
-  -device ide-hd,bus=sata.3,drive=InstallMedia
-  -drive id=InstallMedia,index=2,if=none,file="$REPO_PATH/BaseSystem.Big.Sur.img",format=raw
-  -drive id=MacHDD,index=1,media=disk,if=virtio,file="${VMDIR}/osx.qcow2",format=qcow2,cache=writeback,aio=io_uring
-  #-object memory-backend-memfd,id=mem1,size=${MEM},share=on
-  #-object memory-backend-file,size=4G,share=on,mem-path=/dev/shm/ivshmem,id=hostmem
-  #-overcommit mem-lock=off
-  #-device ${SHMEM}
-  #-device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
-  -device virtio-net-pci,mq=on,packed=on,netdev=net0,mac=${MAC}
-  -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
-  -monitor stdio
-  #-vga vmware
-  -device virtio-vga-gl,xres=1920,yres=1080 #,max_hostmem=131072
-  -vga none
-  # to have qxl, disable above two lines and enable the next one
-  #-vga qxl -global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256
-  #-device qxl,id=video1,vram_size=131072
-  -display ${DP}
-  # to use spice, disable the above display and use the below 4 lines up until sandbox...
-  #-spice port=5920,disable-ticketing
-  #-device virtio-serial
-  #-chardev spicevmc,id=vdagent,debug=0,name=vdagent
-  #-device virtserialport,chardev=vdagent,name=com.redhat.spice.0
-  #-spice port=5920,addr=127.0.0.1,disable-ticketing=on,image-compression=off,seamless-migration=on
-  #-spice unix,addr=/run/user/1000/spice.sock,disable-ticketing=on
-  #-sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
-  -k de
+    -uuid ${UUID}
+    -name ${NETNAME},process=${NETNAME},debug-threads=on
+    -pidfile "/tmp/${NETNAME}/${NETNAME}.pid"
+    -no-user-config
+    # sonoma?
+    #-cpu Haswell-noTSX,vendor=GenuineIntel,kvm=on,+sse3,+sse4.2,+aes,+xsave,+avx,+xsaveopt,+avx2,+bmi2,+smep,+bmi1,+fma,+movbe,+invtsc,+vmx,enforce,vmware-cpuid-freq=on
+    # ventura
+    -cpu kvm64,vendor=GenuineIntel,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890,kvm=on,pcid=off,spec-ctrl=off,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check
+    -smp ${CPU}
+    -device isa-applesmc,osk="$(cat osxkey.txt)"
+    -m ${MEM}
+    -smbios type=2,manufacturer="oliver",product="${NETNAME}starter",version="0.1",serial="0xDEADBEEF",location="github.com",asset="${NETNAME}"
+    -mem-prealloc
+    #-global kvm-pit.lost_tick_policy=delay
+    #-rtc base=localtime
+    -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off
+    -object iothread,id=iothread0
+    # recovery mode
+    ${RECOVERYINFO}
+    -drive "if=pflash,format=raw,readonly=on,file=/data/git/OSX-KVM/OVMF_CODE.fd"
+    -drive "if=pflash,format=raw,file=/tmp/${NETNAME}/my_vars.fd"
+    -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=none,format=qcow2,cache=none,cache.direct=off,aio=io_uring
+    -device virtio-blk-pci,id=blk0,drive=drive0,num-queues=4,iothread=iothread0
+    -device ich9-ahci,id=sata
+    -drive id=OpenCoreBoot,if=none,snapshot=on,format=qcow2,file="/data/git/OSX-KVM/OpenCore/OpenCore.qcow2"
+    -device ide-hd,bus=sata.2,drive=OpenCoreBoot
+    #-drive id=InstallMedia,if=none,file="/data/git/OSX-KVM/BaseSystem.Ventura.img",format=raw
+    #-device ide-hd,bus=sata.3,drive=InstallMedia
+    -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
+    -tpmdev emulator,id=tpm0,chardev=chrtpm
+    -device tpm-crb,tpmdev=tpm0
+    -enable-kvm
+    -object memory-backend-memfd,id=mem1,share=on,merge=on,size=${MEM}
+    -machine ${MTYPE},${ACCEL}
+    #-object memory-backend-file,size=4G,share=on,mem-path=/dev/shm/ivshmem,id=hostmem
+    -overcommit mem-lock=off
+    #-overcommit cpu-pm=on
+    #-device ${SHMEM}
+    -device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
+    -object rng-random,id=objrng0,filename=/dev/urandom
+    -device virtio-rng-pci,rng=objrng0,id=rng0
+    -device intel-iommu
+    -device virtio-serial-pci
+    -device virtio-serial
+    -chardev socket,id=agent0,path="/tmp/${NETNAME}/${NETNAME}-agent.sock",server=on,wait=off
+    -device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
+    -chardev spicevmc,id=vdagent,debug=0,name=vdagent
+    -device virtserialport,chardev=vdagent,name=com.redhat.spice.0
+    -chardev pty,id=charserial0
+    -device isa-serial,chardev=charserial0,id=serial0
+    -chardev spicevmc,id=charchannel0,name=vdagent
+    # usb redirect
+    #-readconfig /etc/qemu/ich9-ehci-uhci.cfg
+    -chardev spicevmc,name=usbredir,id=usbredirchardev1
+    -device usb-redir,chardev=usbredirchardev1,id=usbredirdev1,debug=0
+    -chardev spicevmc,name=usbredir,id=usbredirchardev2
+    -device usb-redir,chardev=usbredirchardev2,id=usbredirdev2,debug=0
+    -chardev spicevmc,name=usbredir,id=usbredirchardev3
+    -device usb-redir,chardev=usbredirchardev3,id=usbredirdev3,debug=0
+    -device virtio-vga-gl,edid=on,xres=1920,yres=1080
+    #-vga none
+    #-device qxl-vga
+    #-global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256
+    #-device vmware-svga
+    #-global vmware-svga.vgamem_mb=1024
+    -spice ${SPICE_MODE}
+    -display ${DP}
+    -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
+    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
+    #-netdev type=vhost-vdpa,vhostdev=/dev/vhost-vdpa-0,id=net0
+    # opencore in qemu and audio is WIP
+    -audiodev ${AUDIO_SERVER}
+    -device intel-hda
+    -device hda-duplex,audiodev=snd0
+    -device hda-micro,audiodev=snd0
+    -usb
+    -device usb-kbd
+    -device usb-tablet
+    -device usb-audio,multi=on,audiodev=snd0
+    -monitor stdio
+    # below is a qemu api scriptable via json
+    -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
+    -mon chardev=qmp,mode=control,pretty=on
+    -sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
+    -k de
 )
+
+# define a graphical backend, either x11 or wayland, defaults to x11
+# does not depend on host choice, freely choosable
+if [[ ${GFX_BACKEND} != @(x11|wayland) ]] ; then
+    GFX_BACKEND=x11
+fi
 
 # check if the bridge is up, if not, dont let us pass here
 if [[ $(ip -br l | awk '$1 !~ "lo|vir|wl" { print $1 }') != *tap0-${NETNAME}* ]]; then
@@ -114,11 +183,21 @@ if [ ! -d "/tmp/${NETNAME}" ]; then
     mkdir /tmp/${NETNAME}
 fi
 
+#create myvars if not exists
+if [ ! -f "/tmp/${NETNAME}/my_vars.fd" ]; then
+    cp /data/git/OSX-KVM/OVMF_VARS-1920x1080.fd /tmp/${NETNAME}/my_vars.fd
+fi
+
 # get tpm going
-#exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
+exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
 
+# for a gpu, we have two choices, either intel or nvidia, defaults to nvidia
+if [[ ${GPU_MODE} == *"intel"* ]]; then
+    # intel
+    DRI_PRIME=pci-0000_00_02_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
+else
+    # nvidia
+    __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+fi
 
-GTK_BACKEND=x11 GDK_BACKEND=x11 QT_BACKEND=x11 VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
-
-#close up script
 exit 0

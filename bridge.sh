@@ -1,21 +1,43 @@
 #!/bin/bash
 # simple tap creator script
+
+# including help function library
+source "./help.sh"
+
 NAME=$1
 CMD=$2
 # name of the master bridge device
 BRIDGE_IF=br0
 # directory, that contains the qemu startup scripts
-STARTSCRIPT_DIR=~/scripts
+STARTSCRIPT_DIR=$(pwd)
 # cuts the info out we need for a listing
-MACHINELIST=`grep NETNAME= ${STARTSCRIPT_DIR}/*.sh | cut -d'=' -f1 | gawk -F. '{ print $1 }' | sed -e 's/bridge//' | gawk -F/ '{ print $NF }'`
+MACHINELIST=$(grep NETNAME= ${STARTSCRIPT_DIR}/*.sh | cut -d'=' -f1 | gawk -F. '{ print $1 }' | sed -e 's/bridge//' | gawk -F/ '{ print $NF }')
 # gets the mac of the machine for handling
-MAC=$(grep -e "${NAME}=" macs.txt |cut -d"=" -f 2)
+MAC=$(grep -e "${NAME}=" ${STARTSCRIPT_DIR}/macs.txt |cut -d"=" -f 2)
 
-function delete_bridge() {
+# function that lists all available vms and shows if a TAP interface is active for it or not
+function list_interfaces() {
+    for _file in ${STARTSCRIPT_DIR}/*.sh; do
+        _netname=$(basename $_file |cut -d"." -f 1)
+        # output formatting
+        _netname_padded=$(printf %-10s ${_netname})
+        _bridgename=$(ip addr | grep ${_netname} | cut -d ':' -f 2 | cut -d '-' -f 2)
+        if [[ $MACHINELIST == *${_netname}* ]]; then
+            if [[ ${_bridgename} == "" ]]; then
+                echo -e "${_netname_padded} \033[0m not active\033[0m"
+            fi
+            if [[ ${_bridgename} != "" ]]; then
+                echo -e "${_netname_padded} \033[0;32m active\033[0m"
+            fi
+        fi
+    done
+}
+
+function delete_interface() {
     sudo ip link delete tap0-${NAME}
 }
 
-function create_bridge() {
+function create_interface() {
     sudo ip tuntap add tap0-${NAME} mode tap user ${USER}
     sudo ip link set dev tap0-${NAME} up
     sudo ip link set tap0-${NAME} master ${BRIDGE_IF}
@@ -39,37 +61,46 @@ if [[ $MACHINELIST == *$NAME* ]]; then
         exit 1
     fi
 
-    case $CMD in
+    case ${CMD} in
         start)
-            create_bridge
-            echo "bridge if created"
+            create_interface
+            echo "TAP interface for ${NAME} has been created."
         ;;
         stop)
-            delete_bridge
-            echo "stopped the tap if"
+            delete_interface
+            echo "TAP interface for ${NAME} has been deleted."
         ;;
         *)
-            echo "parameter missing"
+            help_interface
     esac
 
     exit 0
 fi
 
 # if name is not a machine, its probably something else
-case $NAME in
+case ${NAME} in
     ls)
-        echo available machines:
-        echo $MACHINELIST
+        echo -e "available machines:\n"
+        list_interfaces
+        echo -e "\n"
         exit 0
     ;;
     list)
-        echo available machines:
-        echo $MACHINELIST
+        echo -e "available machines:\n"
+        list_interfaces
+        echo -e "\n"
+        exit 0
+    ;;
+    help|-help|--help|-h|--h|?|-?|--?)
+        help_interface
         exit 0
     ;;
     *)
-        echo "machine does not exist"
+        echo -e "\n"
+        echo -e "virtual machine does not exist\n"
+        help_interface
         exit 0
+    ;;
 esac
 
 exit 0

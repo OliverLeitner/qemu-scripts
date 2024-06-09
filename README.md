@@ -1,18 +1,32 @@
 # QEMU Virtual Machine startup scripts
 
-Readme last updated: 24.02.2024
+Readme last updated: 09.06.2024
 
 these are some common startup scripts for my set of vms
 
 ## howto use (granted you have a qcow2 file ready and adopted the scripts to your files and dirs and network IF):
 - to start a vm:
     - ./bridge.sh netname start
-    - ./netname.sh start
+    - ./netname.sh gpu(intel|nvidia) videoserver(x11|wayland)
 - to stop a vm:
     - power down the vm
     - ./bridge.sh netname stop
 - to list available vms:
-    - ./bridge.sh list
+    - ./bridge.sh list|ls
+- to start spicy (requires spicy):
+    - ./spicy.sh gpu(intel|nvidia) videoserver(x11|wayland)
+    - connect to the vm you want to connect to
+    - alternatively: ./spicy.sh gpu(intel|nvidia) videoserver(x11|wayland) remote(i.e. spice+unix:///...)
+- to start remote-viewer (requires remote-viewer):
+    - ./remote-viewer.sh gpu(intel|nvidia) videoserver(x11|wayland)
+    - connect to the vm you want to connect to
+    - alternatively: ./remote-viewer.sh gpu(intel|nvidia) videoserver(x11|wayland) remote(i.e. spice+unix:///...)
+- to receive help:
+    - ./netname.sh help|-h|--help
+    - ./bridge.sh help|-h|--help
+    - ./spicy.sh help|-h|--help
+    - ./remote-viewer.sh help|-h|--help
+    - just any of the scripts without further commandline options
 
 vm guest run as your user, dont need to be superuser, however, the net bridge and tap setup needs superuser by default, bridge.sh will ask you for your sudo password.
 
@@ -23,27 +37,26 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 - arch.sh:                      arch gnu/linux startup script
 - bliss.sh:                     bliss os (android) startup script
 - debian.sh:                    debian gnu/linux startup script
-- fedora.sh (not in use):       fedora gnu/linux startup script
+- fedora.sh:                    fedora gnu/linux startup script
 - haiku.sh:                     haiku os (BeOS clone) startup script
-- lmde.sh (not in use):         linux mint debian edition startup script (gnu/linux)
-- osx.sh (not in use):          MacOSX startup script
-- ubuntu.sh (not in use):       Ubuntu gnu/linux startup script
+- osx.sh:                       MacOSX startup script
 - void.sh:                      void gnu/linux startup script
-- winplay10.sh (not in use):    Windows 10 startup script
-- winplay.sh:                   Windows 11 startup script
-- freebsd.sh (not in use):      FreeBSD current startup script
-- netbsd.sh (not in use):       NetBSD current EFI startup script
-- netbsd-uefi.sh (not in use):  NetBSD current UEFI startup script
+- winxp.sh:                     Windows XP 32bit startup script
+- win7.sh:                      Windows 7 startup script
+- win81.sh:                     Windows 8.1 startup script
+- win10.sh:                     Windows 10 startup script
+- win11.sh:                     Windows 11 startup script
 - openbsd.sh:                   OpenBSD current startup script
 - rpi.sh:                       Starting a Raspberry PI image generic version
 - rpi-dtb.sh:                   Starting a Raspberry PI 3B image with dtb loaded
-- chromeos.sh (not in use):     ChromeOS Flex current startup script.
-- freedos.sh                    FreeDOS current startup script.
+- freedos.sh:                   FreeDOS current startup script
+- unity.sh:                     Ubuntu Unity startup script
 
 ----------------------------------------------------------------------------
 
 ### tools
 
+- help.sh:                      script for help functionality extension
 - bridge.sh:                    tap network starter script
 
 ----------------------------------------------------------------------------
@@ -55,8 +68,8 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 
 ## requirements:
 
-- HOST: Linux host operating system (in my case: Ubuntu 22.04.2 LTS) with enabled KVM support
-- HOST: Qemu 6.2.0 or newer (qemu-system-x86_64), newer versions might need to switch some device names...
+- HOST: Linux host operating system (in my case: Ubuntu 24.04 LTS) with enabled KVM support
+- HOST: Qemu 8.2.2 or newer (qemu-system-x86_64), newer versions might need to switch some device names...
 - HOST: uuid-runtime (uuidgen tool for generating unique process ids)
 - HOST: a bridged network (br0) and a dhcp server, the scripts generate tap interfaces based upon it
 - HOST: tested with an NVIDIA Card (GTX 750, RTX 3050 is what ive been using), INTEL integrated gfx (my cpu has an i915 compatible one...)
@@ -104,6 +117,7 @@ currently none
     - for some reason smb shares wont show up in "SMB shares", manual mounting being the only option that works.
     - nfs mounts will crash your haiku system after a few minutes: haikus bad network stack combined with the vesa gfx.
     - smb mounts will crash your haiku system after a few minutes: haikus bad network stack combined with the vesa gfx.
+    - random crashes sometimes after minutes, sometimes after hours...
     - one might take the beta status of haiku serious...
 
 - osx.sh:
@@ -118,22 +132,19 @@ currently none
     - does not support dynamic screen resolution based on host screen size.
     - screen artifacts in the vm if running non-spice.
 
-- winplay.sh, winplay10.sh:
+- win10.sh, win11.sh:
     - speed is a bit sluggish, even if you tweak windows to its full potential.
 
-- freebsd.sh:
-    - freebsd currently neither supports qxl nor virtio gpu's, using vmware-svga meanwhile.
-      as a result the experience is slightly sluggish, to get your mouse back from being captured
-      use ctrl+alt+g to escape the capturing.
-      workaround: switch to current (qxl in current pkg repo "working"),
-      however, still not perfect, does not work in sdl (spice only), also basically every desktop
-      environment with settings and session management hardcrashes back to login manager...)
-      known working window managers: i3, dwm, xmonad
-    - freebsd zfs default is sluggish and causes high cpu load, stick to ufs.
+- win81.sh
+    - does not support virgl at all, youre best of running that one in qxl.
 
-- netbsd.sh / netbsd-uefi.sh:
-    - netbsd does not support qxl, virtio. the best option here is the vmware-svga.
-    - vlc is broken and has been broken (core dumping...) for quite a while now.
+- win7.sh
+    - very limited support for spice guest tools and any virtio, only old versions work.
+    - in old versions: no virgl, stay with qxl on that one.
+
+- winxp.sh
+    - works only with years old versions of spice guest tools, and even then...
+    - stay with qxl on that one, nowhere close any virgl.
 
 - openbsd.sh:
     - openbsd does have problems with all sound cards except the usb option.
@@ -144,11 +155,6 @@ currently none
     - you are obviously limited by the architecture, no kvm accel, not more than 1 Gigabyte of RAM.
     - GUI should be possible, but for the level i am using PI's i dont need GUI.
     - no virtio things are available if the dtb is loaded and we are in full raspi3b emulation mode.
-
-- chromeos.sh:
-    - graphics are seriously broken, best bet would be taking the bliss os grub parameters, and try them here.
-    - performance is sub par, alot of stuff is just crashing or hanging.
-    - no block device supports, its an hda, and thats what it always will be.
 
 ## read more
 

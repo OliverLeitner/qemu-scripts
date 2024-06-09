@@ -4,7 +4,7 @@ MEM=1G
 NETNAME=$(basename $0 |cut -d"." -f 1)
 MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 rasp=/virtualisation/rpi
-CPU=2,maxcpus=2,cores=2,sockets=1,threads=1
+CPU=4,maxcpus=4,cores=4,sockets=1,threads=1
 UUID="$(uuidgen)"
 
 # from boot/cmdline.txt
@@ -31,8 +31,9 @@ args=(
     -object iothread,id=iothread0
     -drive id=drive0,file=${rasp}/20231109_raspi_3_bookworm.img,format=raw,media=disk,index=0,if=none,cache=none,cache.direct=off,aio=io_uring
     -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
-    -append "root=LABEL=RASPIROOT rootfstype=ext4 rw fsck.repair=1 net.ifnames=0 cma=64M rootwait console=tty0 console=ttyS1,115200 console=ttyAMA0,115200"
-    -initrd ${rasp}/initrd.img-6.1.0-18-arm64
+    -kernel ${rasp}/vmlinuz
+    -append "root=LABEL=RASPIROOT rootfstype=ext4 rw fsck.repair=1 net.ifnames=0 cma=64M rootwait console=tty0 console=ttyS1,115200 console=ttyAMA0,115200 ipv6.disable=1"
+    -initrd ${rasp}/initrd.img
     -usb
     -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
