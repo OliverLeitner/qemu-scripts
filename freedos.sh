@@ -2,7 +2,7 @@
 # start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [recovery]
 
 # including help function library
-source "./help.sh"
+source $(dirname $0)"/help.sh"
 
 # commandline parameters
 GPU_MODE=$1
@@ -23,10 +23,10 @@ fi
 NETNAME=$(basename $0 |cut -d"." -f 1)
 MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 SPICE_MODE=agent-mouse=on,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${RENDER}
-#DP=sdl,gl=on,show-cursor=off
-DP=egl-headless,rendernode=${RENDER}
+DP=sdl,gl=on,show-cursor=off
+#DP=egl-headless,rendernode=${RENDER}
 MTYPE=pc,dump-guest-core=off,mem-merge=on,smm=on,vmport=auto,nvdimm=off,hmat=off,hpet=off,memory-backend=mem1
-ACCEL=accel=kvm #,kernel_irqchip=on
+ACCEL=accel=kvm,kernel_irqchip=on
 UUID="$(uuidgen)"
 CPU=1,maxcpus=1,cores=1,sockets=1,threads=1
 BIOS=/usr/share/OVMF/OVMF_CODE.fd
@@ -82,15 +82,15 @@ if [[ "${CONN}" == *"spice.sock" ]]; then
 fi
 
 args=(
-    -nodefaults
+    #-nodefaults
     -uuid ${UUID}
     -name ${NETNAME},process=${NETNAME}
     -pidfile "/tmp/${NETNAME}/${NETNAME}.pid"
     #-parallel none
     #-serial none
-    -no-user-config
+    #-no-user-config
     #-cpu host,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,vmware-cpuid-freq=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890,kvm=on,pcid=off,spec-ctrl=off
-    -cpu pentium #,sse2=off,vmx=off,hypervisor=off,kvm=off,pcid=off,spec-ctrl=off
+    -cpu pentium,sse2=off,vmx=off,hypervisor=off,kvm=off,pcid=off,spec-ctrl=off
     -smp ${CPU}
     -m ${MEM}
     #-bios ${SEABIOS}/bios.bin
@@ -98,7 +98,7 @@ args=(
     -smbios type=2,manufacturer="oliver",product="${NETNAME}starter",version="0.1",serial="0xDEADBEEF",location="github.com",asset="${NETNAME}"
     #-global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off
     #-global kvm-pit.lost_tick_policy=delay
-    -mem-prealloc
+    #-mem-prealloc
     -rtc base=localtime
     #-boot order=c,menu=on,strict=on,splash-time=20000
     -object iothread,id=iothread0
@@ -111,26 +111,26 @@ args=(
     #-chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
     #-tpmdev emulator,id=tpm0,chardev=chrtpm
     #-device tpm-crb,tpmdev=tpm0
-    #-device floppy
-    -device vmcoreinfo
-    -device vmgenid
+    -device floppy
+    #-device vmcoreinfo
+    #-device vmgenid
     -enable-kvm
     -object memory-backend-memfd,id=mem1,share=on,merge=on,size=${MEM}
     -machine ${MTYPE},${ACCEL}
     #-object memory-backend-file,size=4G,share=on,mem-path=/dev/shm/ivshmem,id=hostmem
-    -overcommit mem-lock=off
+    #-overcommit mem-lock=off
     #-overcommit cpu-pm=on
     #-device ${SHMEM}
     #-device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
     #-object rng-random,id=objrng0,filename=/dev/urandom
     #-device virtio-rng-pci,rng=objrng0,id=rng0,max-bytes=1024,period=1000
     #-device intel-iommu
-    -device virtio-serial-pci
+    #-device virtio-serial-pci
     #-device virtio-serial
-    -chardev socket,id=agent0,path="/tmp/${NETNAME}/${NETNAME}-agent.sock",server=on,wait=off
-    -device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
-    -chardev spicevmc,id=vdagent0,name=vdagent
-    -device virtserialport,chardev=vdagent0,name=com.redhat.spice.0
+    #-chardev socket,id=agent0,path="/tmp/${NETNAME}/${NETNAME}-agent.sock",server=on,wait=off
+    #-device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
+    #-chardev spicevmc,id=vdagent0,name=vdagent
+    #-device virtserialport,chardev=vdagent0,name=com.redhat.spice.0
     #-device virtio-vga-gl,edid=on
     #-device virtio-gpu-gl-pci,edid=on
     -device cirrus-vga
@@ -142,7 +142,7 @@ args=(
     #-device vmware-svga
     #-global vmware-svga.vgamem_mb=2
     #-spice agent-mouse=off,addr=/tmp/${NETNAME}/spice.sock,unix=on,disable-ticketing=on,rendernode=${NV_RENDER}
-    -spice ${SPICE_MODE}
+    #-spice ${SPICE_MODE}
     -display ${DP}
     #-device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
@@ -159,12 +159,12 @@ args=(
     -device sb16,audiodev=snd0
     -device gus,audiodev=snd0
     -device adlib,audiodev=snd0
-    #-usb
-    #-device nec-usb-xhci
+    -usb
+    -device nec-usb-xhci
     #-device usb-tablet
     #-device usb-kbd
     #-device usb-mouse
-    -device virtio-keyboard-pci
+    #-device virtio-keyboard-pci
     -device virtio-mouse-pci
     -monitor stdio
     # below is a qemu api scriptable via json
@@ -197,10 +197,10 @@ fi
 # for a gpu, we have two choices, either intel or nvidia, defaults to nvidia
 if [[ ${GPU_MODE} == *"intel"* ]]; then
     # intel
-    DRI_PRIME=pci-0000_00_02_0 VIRGL_RENDERER_ASYNC_FENCE_CB=1 VAAPI_MPEG4_ENABLED=true VGL_READBACK=bpo __GLX_VENDOR_LIBRARY_NAME=mesa GDK_SCALE=1 GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
+    DRI_PRIME=pci-0000_00_02_0 VIRGL_RENDERER_ASYNC_FENCE_CB=1 VAAPI_MPEG4_ENABLED=true VGL_READBACK=bpo GDK_SCALE=1 GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
 else
     # nvidia
-    VIRGL_RENDERER_ASYNC_FENCE_CB=1 __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true VGL_READBACK=pbo __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+    VIRGL_RENDERER_ASYNC_FENCE_CB=1 __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true VGL_READBACK=pbo GDK_SCALE=1 GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
 fi
 
 exit 0

@@ -1,15 +1,16 @@
 #!/bin/bash
 # simple tap creator script
 
-# including help function library
-source "./help.sh"
-
-NAME=$1
-CMD=$2
 # name of the master bridge device
 BRIDGE_IF=br0
 # directory, that contains the qemu startup scripts
-STARTSCRIPT_DIR=$(pwd)
+STARTSCRIPT_DIR=$(dirname $0)
+
+# including help function library
+source ${STARTSCRIPT_DIR}"/help.sh"
+
+NAME=$1
+CMD=$2
 # cuts the info out we need for a listing
 MACHINELIST=$(grep NETNAME= ${STARTSCRIPT_DIR}/*.sh | cut -d'=' -f1 | gawk -F. '{ print $1 }' | sed -e 's/bridge//' | gawk -F/ '{ print $NF }')
 # gets the mac of the machine for handling

@@ -1,17 +1,49 @@
 #!/bin/bash
-# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [recovery]
+# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to run on] [recovery]
 
 # including help function library
-source "./help.sh"
+source $(dirname $0)"/help.sh"
 
 # commandline parameters
 GPU_MODE=$1
 GFX_BACKEND=$2
+CPU_SELECTED=$3
 RECOVERY_MODE=$3
 
+# if we fill in the cpu affinity, then recovery mode gets
+# corrected to flag number 4
+_first_core=$(echo $CPU_SELECTED |cut -d "," -f 1)
+_num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
+if [ -n "$_first_core" ] && [ "$_first_core" -eq "$_first_core" ] 2>/dev/null; then
+    RECOVERY_MODE=$4
+else
+    # if we dont have user input for the selected cores
+    # we go with the last 4 cores of the cpu as default
+    # osx 16gigs ram and 8 cores seem to be a starting
+    # point according to system requirements...
+    _num_total=8
+    _num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
+    _out_cpus=""
+
+    while [ $_num_total -gt 0 ]; do
+        _out_cpus+="${_num_cpus},"
+        let _num_cpus=_num_cpus-1
+        let _num_total=_num_total-1
+    done
+
+    CPU_SELECTED=${_out_cpus::-1}
+fi
+
 # ---------------- settings start ------------------
+# which qemu binary to run through
 BOOT_BIN=/usr/bin/qemu-system-x86_64
-MEM=8G
+# spice remove connection
+MEM=16G
+# monitor resolution in pixels
+declare -A SCREENSIZE
+SCREENSIZE[width]=1920
+SCREENSIZE[height]=1080
+# spice remove connection
 SPICE_PORT=6050
 # intel render node
 GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
@@ -28,9 +60,11 @@ DP=egl-headless,rendernode=${RENDER}
 MTYPE=q35,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=on,hmat=on,memory-backend=mem1
 ACCEL=accel=kvm,kernel_irqchip=on #,kvm-shadow-mem=256000000
 UUID="$(uuidgen)"
-CPU=2,maxcpus=2,cores=2,sockets=1,threads=1
+# get the number of cores based upon our selected cores
+_num_selected=$(echo $CPU_SELECTED|awk -F',' '{print NF}')
+CPU=$_num_selected,maxcpus=$_num_selected,cores=$_num_selected,sockets=1,threads=1,dies=1
 # path to the operating system iso
-ISODIR=/data/isos/os
+ISODIR=/data/git/OSX-KVM.newtry
 # path to the vm image
 VMDIR=/virtualisation
 # path to our recovery iso
@@ -83,10 +117,9 @@ args=(
     -name ${NETNAME},process=${NETNAME},debug-threads=on
     -pidfile "/tmp/${NETNAME}/${NETNAME}.pid"
     -no-user-config
-    # sonoma?
-    #-cpu Haswell-noTSX,vendor=GenuineIntel,kvm=on,+sse3,+sse4.2,+aes,+xsave,+avx,+xsaveopt,+avx2,+bmi2,+smep,+bmi1,+fma,+movbe,+invtsc,+vmx,enforce,vmware-cpuid-freq=on
     # ventura
-    -cpu kvm64,vendor=GenuineIntel,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890,kvm=on,pcid=off,spec-ctrl=off,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check
+    -cpu Penryn,kvm=on,vendor=GenuineIntel,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check
+    #-cpu Penryn,vendor=GenuineIntel,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890,kvm=on,pcid=off,spec-ctrl=off,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+avx2,+xsave,+xsaveopt,+bmi1,+bmi2,+fma,+movbe,+invtsc,+vmx,enforce
     -smp ${CPU}
     -device isa-applesmc,osk="$(cat osxkey.txt)"
     -m ${MEM}
@@ -98,14 +131,14 @@ args=(
     -object iothread,id=iothread0
     # recovery mode
     ${RECOVERYINFO}
-    -drive "if=pflash,format=raw,readonly=on,file=/data/git/OSX-KVM/OVMF_CODE.fd"
-    -drive "if=pflash,format=raw,file=/tmp/${NETNAME}/my_vars.fd"
+    -drive "if=pflash,format=raw,readonly=on,file=${ISODIR}/OVMF_CODE.fd"
+    -drive "if=pflash,format=raw,file=${HOME}/scripts/${NETNAME}/my_vars.fd"
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=none,format=qcow2,cache=none,cache.direct=off,aio=io_uring
     -device virtio-blk-pci,id=blk0,drive=drive0,num-queues=4,iothread=iothread0
     -device ich9-ahci,id=sata
-    -drive id=OpenCoreBoot,if=none,snapshot=on,format=qcow2,file="/data/git/OSX-KVM/OpenCore/OpenCore.qcow2"
+    -drive id=OpenCoreBoot,if=none,snapshot=on,format=qcow2,file="${ISODIR}/OpenCore/OpenCore.qcow2"
     -device ide-hd,bus=sata.2,drive=OpenCoreBoot
-    #-drive id=InstallMedia,if=none,file="/data/git/OSX-KVM/BaseSystem.Ventura.img",format=raw
+    #-drive id=InstallMedia,if=none,file="${ISODIR}/BaseSystem.img",format=raw
     #-device ide-hd,bus=sata.3,drive=InstallMedia
     -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
     -tpmdev emulator,id=tpm0,chardev=chrtpm
@@ -138,7 +171,7 @@ args=(
     -device usb-redir,chardev=usbredirchardev2,id=usbredirdev2,debug=0
     -chardev spicevmc,name=usbredir,id=usbredirchardev3
     -device usb-redir,chardev=usbredirchardev3,id=usbredirdev3,debug=0
-    -device virtio-vga-gl,edid=on,xres=1920,yres=1080
+    -device virtio-vga-gl,edid=on,xres=${SCREENSIZE[width]},yres=${SCREENSIZE[height]}
     #-vga none
     #-device qxl-vga
     #-global qxl-vga.ram_size=262144 -global qxl-vga.vram_size=262144 -global qxl-vga.vgamem_mb=256
@@ -152,12 +185,15 @@ args=(
     # opencore in qemu and audio is WIP
     -audiodev ${AUDIO_SERVER}
     -device intel-hda
+    #-device ich9-intel-hda
     -device hda-duplex,audiodev=snd0
     -device hda-micro,audiodev=snd0
+    -device ac97,audiodev=snd0
     -usb
-    -device usb-kbd
-    -device usb-tablet
-    -device usb-audio,multi=on,audiodev=snd0
+    -device qemu-xhci,id=xhci
+    -device usb-kbd,bus=xhci.0
+    -device usb-tablet,bus=xhci.0
+    -device usb-audio,multi=on,bus=xhci.0,audiodev=snd0
     -monitor stdio
     # below is a qemu api scriptable via json
     -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
@@ -165,6 +201,12 @@ args=(
     -sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
     -k de
 )
+
+# switch cpu affinity on, if the config is set
+cpu_affinity=
+if [[ ${CPU_SELECTED} != "" ]] && [[ ${CPU_SELECTED} != "0" ]] ; then
+    cpu_affinity="taskset -c ${CPU_SELECTED}"
+fi
 
 # define a graphical backend, either x11 or wayland, defaults to x11
 # does not depend on host choice, freely choosable
@@ -184,8 +226,8 @@ if [ ! -d "/tmp/${NETNAME}" ]; then
 fi
 
 #create myvars if not exists
-if [ ! -f "/tmp/${NETNAME}/my_vars.fd" ]; then
-    cp /data/git/OSX-KVM/OVMF_VARS-1920x1080.fd /tmp/${NETNAME}/my_vars.fd
+if [ ! -f "${HOME}/${NETNAME}/my_vars.fd" ]; then
+    cp /data/git/OSX-KVM.newtry/OVMF_VARS-1920x1080.fd ${HOME}/scripts/${NETNAME}/my_vars.fd
 fi
 
 # get tpm going
@@ -194,10 +236,10 @@ exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=
 # for a gpu, we have two choices, either intel or nvidia, defaults to nvidia
 if [[ ${GPU_MODE} == *"intel"* ]]; then
     # intel
-    DRI_PRIME=pci-0000_00_02_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
+    DRI_PRIME=pci-0000_00_02_0 VAAPI_MPEG4_ENABLED=true VDPAU_DRIVER="i915" GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} ${cpu_affinity} ${BOOT_BIN} "${args[@]}"
 else
     # nvidia
-    __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+    __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${cpu_affinity} ${BOOT_BIN} "${args[@]}"
 fi
 
 exit 0

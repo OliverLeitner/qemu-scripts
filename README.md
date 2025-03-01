@@ -1,18 +1,20 @@
 # QEMU Virtual Machine startup scripts
 
-Readme last updated: 09.06.2024
+Readme last updated: 01.03.2025
 
 these are some common startup scripts for my set of vms
 
 ## howto use (granted you have a qcow2 file ready and adopted the scripts to your files and dirs and network IF):
 - to start a vm:
     - ./bridge.sh netname start
-    - ./netname.sh gpu(intel|nvidia) videoserver(x11|wayland)
+    - ./netname.sh gpu(intel|nvidia) videoserver(x11|wayland) [1,2,3... cores you want the vm to run on] [recovery]
 - to stop a vm:
     - power down the vm
     - ./bridge.sh netname stop
 - to list available vms:
     - ./bridge.sh list|ls
+- to list running vms:
+    - ./lsvm.sh
 - to start spicy (requires spicy):
     - ./spicy.sh gpu(intel|nvidia) videoserver(x11|wayland)
     - connect to the vm you want to connect to
@@ -38,19 +40,20 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 - bliss.sh:                     bliss os (android) startup script
 - debian.sh:                    debian gnu/linux startup script
 - fedora.sh:                    fedora gnu/linux startup script
+- freebsd.sh:                   FreeBSD startup script
+- freedos.sh:                   FreeDOS current startup script
 - haiku.sh:                     haiku os (BeOS clone) startup script
-- osx.sh:                       MacOSX startup script
+- netbsd.sh:                    NetBSD startup script
+- openbsd.sh:                   OpenBSD current startup script
+- osx.sh:                       MacOSX Ventura startup script
+- unity.sh:                     Ubuntu Unity startup script
 - void.sh:                      void gnu/linux startup script
-- winxp.sh:                     Windows XP 32bit startup script
-- win7.sh:                      Windows 7 startup script
-- win81.sh:                     Windows 8.1 startup script
 - win10.sh:                     Windows 10 startup script
 - win11.sh:                     Windows 11 startup script
-- openbsd.sh:                   OpenBSD current startup script
+- winxp.sh:                     Windows XP 32bit startup script
+- winxp.sh:                     Windows XP 32bit startup script
 - rpi.sh:                       Starting a Raspberry PI image generic version
 - rpi-dtb.sh:                   Starting a Raspberry PI 3B image with dtb loaded
-- freedos.sh:                   FreeDOS current startup script
-- unity.sh:                     Ubuntu Unity startup script
 
 ----------------------------------------------------------------------------
 
@@ -58,6 +61,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 
 - help.sh:                      script for help functionality extension
 - bridge.sh:                    tap network starter script
+- lsvm.sh:                      script to show all actively running vms
 
 ----------------------------------------------------------------------------
 
@@ -73,7 +77,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 - HOST: uuid-runtime (uuidgen tool for generating unique process ids)
 - HOST: a bridged network (br0) and a dhcp server, the scripts generate tap interfaces based upon it
 - HOST: tested with an NVIDIA Card (GTX 750, RTX 3050 is what ive been using), INTEL integrated gfx (my cpu has an i915 compatible one...)
-- HOSt: Intel Core I3 8th gen (others are possible, this is just what i have been running em on...)
+- HOSt: Intel Core I7 12th gen (others are possible, this is just what i have been running em on...)
 - HOST: base gnu tools in reasonably current versions: "bash", "cat", "grep", "ip", "cut", "brctl", "nmcli", "sudo", "awk", "tr"
 - HOST: enough RAM and disk space to handle the machine(s)
 - HOST: a file called "macs.txt" containing names and mac addresses of guests in the form of one "netname=mac" per line
@@ -81,7 +85,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 ## optional:
 
 - HOST: software emulated tpm (swtpm) (windows wants this now...)
-- HOST: OVMF uefi firmware binaries (only needed for uefi hosts...)
+- HOST: OVMF efi firmware binaries (only needed for efi hosts...)
 - GUEST: libvirglrenderer1 (for gui vms, not rpi, not rpi-dtb)
 - GUEST: qemu-guest-agent (not a requirement, but it makes sense...)
 - GUEST: spice-vdagent (helps with all except netbsd (spice vdagent not avail.), openbsd (spice-vdagent not avail.), rpi (not needed, serial), rpi-dtb (not needed, serial))
@@ -115,28 +119,17 @@ currently none
     - no support for gallium/virgl rendering, no real support for qxl or virtio-vga-gl.
       vmware-svga also seems to be broken (reports as vmware, but still vesa performance), everything reports as vesa.
     - for some reason smb shares wont show up in "SMB shares", manual mounting being the only option that works.
-    - nfs mounts will crash your haiku system after a few minutes: haikus bad network stack combined with the vesa gfx.
-    - smb mounts will crash your haiku system after a few minutes: haikus bad network stack combined with the vesa gfx.
-    - random crashes sometimes after minutes, sometimes after hours...
+    - since haiku beta5 mounts will no longer freeze the system, but theyll be lost after a few minutes of inactivity.
+    - random crashes/hangs sometimes after minutes, sometimes after hours...
+    - youll need to click net_start for the machine to receive an ip.
     - one might take the beta status of haiku serious...
 
 - osx.sh:
-    - since it is running opencore, theres a bit of latency
+    - since it is running opencore, its sluggish even with alot of cpus and memory.
     - system updates and version switching will break the guest, even if OSX-KVM says they are safe.
 
 - fedora.sh:
     - if you are using fedora with its default btrfs filesystem, this might cause a bit of latency.
-
-- bliss.os:
-    - i have had problems getting other android distributions than bliss os running stable or at all.
-    - does not support dynamic screen resolution based on host screen size.
-    - screen artifacts in the vm if running non-spice.
-
-- win10.sh, win11.sh:
-    - speed is a bit sluggish, even if you tweak windows to its full potential.
-
-- win81.sh
-    - does not support virgl at all, youre best of running that one in qxl.
 
 - win7.sh
     - very limited support for spice guest tools and any virtio, only old versions work.
@@ -146,10 +139,11 @@ currently none
     - works only with years old versions of spice guest tools, and even then...
     - stay with qxl on that one, nowhere close any virgl.
 
+- netbsd.sh:
+    - every gfx type (including vmware svga) is recognized as lavapipe, so not so speedy...
+
 - openbsd.sh:
-    - openbsd does have problems with all sound cards except the usb option.
-      also, like with all other bsd's xorg video accel only works with vmware-svga.
-    - the default FFS filesystem is performing rather poorly, use ufs if possible.
+    - stay with vmware-svga on this one, everything else is lavapipe...
 
 - rpi.sh/rpi-dtb.sh:
     - you are obviously limited by the architecture, no kvm accel, not more than 1 Gigabyte of RAM.
@@ -173,7 +167,7 @@ got the overhead of wrapping libvirtd around your qemu, thus the latency will be
 
 ## a few facts:
 
-i have been running these vm guests with the scripts over the last 3 years, some of them 6 and longer, things are now in a fully
+i have been running these vm guests with the scripts over the last 4 years, some of them 7 and longer, things are now in a fully
 proven stable state, so i am sharing these with the world.
 
 ## enjoy!

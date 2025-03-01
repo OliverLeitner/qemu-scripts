@@ -1,17 +1,45 @@
 #!/bin/bash
-# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [recovery]
+# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to run on] [recovery]
 
 # including help function library
-source "./help.sh"
+source $(dirname $0)"/help.sh"
 
 # commandline parameters
 GPU_MODE=$1
 GFX_BACKEND=$2
+CPU_SELECTED=$3
 RECOVERY_MODE=$3
+
+# if we fill in the cpu affinity, then recovery mode gets
+# corrected to flag number 4
+_first_core=$(echo $CPU_SELECTED |cut -d "," -f 1)
+_num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
+if [ -n "$_first_core" ] && [ "$_first_core" -eq "$_first_core" ] 2>/dev/null; then
+    RECOVERY_MODE=$4
+else
+    # if we dont have user input for the selected cores
+    # we go with the last 4 cores of the cpu as default
+    _num_total=4
+    _num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
+    _out_cpus=""
+
+    while [ $_num_total -gt 0 ]; do
+        _out_cpus+="${_num_cpus},"
+        let _num_cpus=_num_cpus-1
+        let _num_total=_num_total-1
+    done
+
+    CPU_SELECTED=${_out_cpus::-1}
+fi
 
 # ---------------- settings start ------------------
 BOOT_BIN=/usr/bin/qemu-system-x86_64
 MEM=8G
+# monitor resolution in pixels
+declare -A SCREENSIZE
+SCREENSIZE[width]=1920
+SCREENSIZE[height]=1080
+# spice remote connection
 SPICE_PORT=5990
 # intel render node
 GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
@@ -28,7 +56,9 @@ DP=egl-headless,show-cursor=off,rendernode=${RENDER}
 MTYPE=q35,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=on,hmat=on,memory-backend=mem1
 ACCEL=accel=kvm #,kernel_irqchip=on #,kvm-shadow-mem=256000000
 UUID="$(uuidgen)"
-CPU=4,maxcpus=4,dies=1,cores=4,sockets=1,threads=1
+# get the number of cores based upon our selected cores
+_num_selected=$(echo $CPU_SELECTED|awk -F',' '{print NF}')
+CPU=$_num_selected,maxcpus=$_num_selected,cores=$_num_selected,sockets=1,threads=1,dies=1
 # path to the operating system iso
 ISODIR=/data/isos/os
 # path to the vm image
@@ -93,11 +123,11 @@ args=(
     -object iothread,id=iothread0
     # recovery mode
     ${RECOVERYINFO}
-    -drive "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"
+    -drive "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd"
     -drive "if=pflash,format=raw,file=/tmp/${NETNAME}/my_vars.fd"
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=none,cache=none,cache.direct=off,aio=io_uring
     #-drive id=drive1,file=${ISODIR}/windows/Win11-Workstation-23H2-En-Gb-x86-64.iso,media=cdrom,index=1
-    #-drive id=drive2,file=${ISODIR}/virtio-win-0.1.248.iso,media=cdrom,index=2
+    #-drive id=drive2,file=${ISODIR}/virtio-win-0.1.266.iso,media=cdrom
     -device virtio-blk-pci,id=blk0,drive=drive0,num-queues=4,iothread=iothread0
     #-set device.blk0.discard_granularity=0
     -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
@@ -131,21 +161,21 @@ args=(
     -device usb-redir,chardev=usbredirchardev2,id=usbredirdev2,debug=0
     -chardev spicevmc,name=usbredir,id=usbredirchardev3
     -device usb-redir,chardev=usbredirchardev3,id=usbredirdev3,debug=0
-    -device virtio-vga-gl,edid=on,xres=1920,yres=1080
+    #-device virtio-vga-gl,edid=on,xres=${SCREENSIZE[width]},yres=${SCREENSIZE[height]}
     #-device virtio-vga
     #-vga none
-    #-device qxl-vga
-    #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
+    -device qxl-vga
+    -global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
     -spice ${SPICE_MODE}
     -display ${DP}
     -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
     -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
     -audiodev ${AUDIO_SERVER}
     #-audiodev sdl,id=sdl0
-    #-device ich9-intel-hda
-    #-device hda-duplex,audiodev=pa
-    #-device hda-micro,audiodev=pa
-    -device ac97,audiodev=snd0
+    -device ich9-intel-hda
+    -device hda-duplex,audiodev=snd0
+    -device hda-micro,audiodev=snd0
+    #-device ac97,audiodev=snd0
     -usb
     -device nec-usb-xhci
     -device usb-tablet
@@ -160,6 +190,12 @@ args=(
     -sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
     -k de
 )
+
+# switch cpu affinity on, if the config is set
+cpu_affinity=
+if [[ ${CPU_SELECTED} != "" ]] && [[ ${CPU_SELECTED} != "0" ]] ; then
+    cpu_affinity="taskset -c ${CPU_SELECTED}"
+fi
 
 # define a graphical backend, either x11 or wayland, defaults to x11
 # does not depend on host choice, freely choosable
@@ -189,10 +225,10 @@ exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=
 # for a gpu, we have two choices, either intel or nvidia, defaults to nvidia
 if [[ ${GPU_MODE} == *"intel"* ]]; then
     # intel
-    DRI_PRIME=pci-0000_00_02_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
+    DRI_PRIME=pci-0000_00_02_0 VAAPI_MPEG4_ENABLED=true VDPAU_DRIVER="i915" GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} ${cpu_affinity} ${BOOT_BIN} "${args[@]}"
 else
     # nvidia
-    _NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+    _NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${cpu_affinity} ${BOOT_BIN} "${args[@]}"
 fi
 
 #close up script

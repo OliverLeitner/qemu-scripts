@@ -1,18 +1,48 @@
 #!/bin/bash
-# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [recovery]
+# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to run on] [recovery]
 
 # including help function library
-source "./help.sh"
+source $(dirname $0)"/help.sh"
 
 # commandline parameters
 GPU_MODE=$1
 GFX_BACKEND=$2
+CPU_SELECTED=$3
 RECOVERY_MODE=$3
 
+# if we fill in the cpu affinity, then recovery mode gets
+# corrected to flag number 4
+_first_core=$(echo $CPU_SELECTED |cut -d "," -f 1)
+_num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
+if [ -n "$_first_core" ] && [ "$_first_core" -eq "$_first_core" ] 2>/dev/null; then
+    RECOVERY_MODE=$4
+else
+    # if we dont have user input for the selected cores
+    # we go with the last 4 cores of the cpu as default
+    _num_total=4
+    _num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
+    _out_cpus=""
+
+    while [ $_num_total -gt 0 ]; do
+        _out_cpus+="${_num_cpus},"
+        let _num_cpus=_num_cpus-1
+        let _num_total=_num_total-1
+    done
+
+    CPU_SELECTED=${_out_cpus::-1}
+fi
+
 # ---------------- settings start ------------------
+# which qemu binary to run through
 BOOT_BIN=/usr/bin/qemu-system-x86_64
+# spice remove connection
 SPICE_PORT=5930
-MEM=4G
+# RAM
+MEM=8G
+# monitor resolution in pixels
+declare -A SCREENSIZE
+SCREENSIZE[width]=1920
+SCREENSIZE[height]=1080
 # intel render node
 GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
 # nvidia render node
@@ -26,11 +56,13 @@ SPICE_MODE=agent-mouse=on,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on
 #DP=sdl,gl=on
 DP=egl-headless,rendernode=${RENDER}
 #DP=sdl
-MTYPE=pc-q35-6.2,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=auto,nvdimm=on,hmat=on,memory-backend=mem1
+MTYPE=q35,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=auto,nvdimm=on,hmat=on,memory-backend=mem1
 #MTYPE=q35
 ACCEL=accel=kvm #,shadow-mem=256000000
 UUID="$(uuidgen)"
-CPU=2,maxcpus=2,dies=1,cores=2,sockets=1,threads=1
+# get the number of cores based upon our selected cores
+_num_selected=$(echo $CPU_SELECTED|awk -F',' '{print NF}')
+CPU=$_num_selected,maxcpus=$_num_selected,cores=$_num_selected,sockets=1,threads=1,dies=1
 # path to the vm image
 VMDIR=/virtualisation
 # path to the operating system iso
@@ -94,24 +126,26 @@ args=(
     -parallel none
     -serial none
     -drive "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"
-    -drive "if=pflash,format=raw,file=/tmp/${NETNAME}/my_vars.fd"
+    -drive "if=pflash,format=raw,file=${HOME}/scripts/${NETNAME}/my_vars.fd"
     -object iothread,id=iothread0
     # recovery mode
     ${RECOVERYINFO}
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,if=none,format=qcow2,cache=none,cache.direct=off,aio=io_uring
     -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
-    #-chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
-    #-tpmdev emulator,id=tpm0,chardev=chrtpm
-    #-device tpm-crb,tpmdev=tpm0
+    # installer image (bliss os update should be able to roll that way...)
+    #-drive id=drive1,file="${ISODIR}/android/Bliss-v16.9.7-x86_64-OFFICIAL-gapps-20241011.iso",media=cdrom
+    -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
+    -tpmdev emulator,id=tpm0,chardev=chrtpm
+    -device tpm-crb,tpmdev=tpm0
     -enable-kvm
     -object memory-backend-memfd,id=mem1,share=on,merge=on,size=${MEM}
     -machine ${MTYPE},${ACCEL}
     -overcommit mem-lock=off
     #-overcommit cpu-pm=on
-    #-device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
-    #-object rng-random,id=objrng0,filename=/dev/urandom
-    #-device virtio-rng-pci,rng=objrng0,id=rng0
-    #-device virtio-serial-pci
+    -device virtio-balloon-pci,id=balloon0,deflate-on-oom=on
+    -object rng-random,id=objrng0,filename=/dev/urandom
+    -device virtio-rng-pci,rng=objrng0,id=rng0
+    -device virtio-serial-pci
     -device virtio-serial
     -chardev spicevmc,id=vdagent,debug=0,name=vdagent
     -device virtserialport,chardev=vdagent,name=com.redhat.spice.0
@@ -121,12 +155,13 @@ args=(
     #-audiodev sdl,id=sdl0
     -device ich9-intel-hda
     -device hda-duplex,audiodev=snd0
-    #-device hda-micro,audiodev=pa
+    -device hda-micro,audiodev=snd0
     #-device ac97,audiodev=sdl0
     #-vga virtio
+    #-vga none
     #-device qxl-vga
     #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
-    -device virtio-vga-gl,edid=on,xres=1920,yres=1080
+    -device virtio-vga-gl,edid=on,xres=${SCREENSIZE[width]},yres=${SCREENSIZE[height]}
     -spice ${SPICE_MODE}
     -display ${DP}
     # usb redirect
@@ -151,6 +186,12 @@ args=(
     -k de
 )
 
+# switch cpu affinity on, if the config is set
+cpu_affinity=
+if [[ ${CPU_SELECTED} != "" ]] && [[ ${CPU_SELECTED} != "0" ]] ; then
+    cpu_affinity="taskset -c ${CPU_SELECTED}"
+fi
+
 # define a graphical backend, either x11 or wayland, defaults to x11
 # does not depend on host choice, freely choosable
 if [[ ${GFX_BACKEND} != @(x11|wayland) ]] ; then
@@ -163,8 +204,9 @@ if [ ! -d "/tmp/${NETNAME}" ]; then
 fi
 
 #create myvars if not exists
-if [ ! -f "/tmp/${NETNAME}/my_vars.fd" ]; then
-    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/${NETNAME}/my_vars.fd
+if [ ! -f "${HOME}/scripts/${NETNAME}/my_vars.fd" ]; then
+    mkdir -p ${HOME}/scripts/${NETNAME} >/dev/null
+    cp /usr/share/OVMF/OVMF_VARS_4M.fd ${HOME}/scripts/${NETNAME}/my_vars.fd
 fi
 
 # check if the bridge is up, if not, dont let us pass here
@@ -174,14 +216,14 @@ if [[ $(ip -br l | awk '$1 !~ "lo|vir|wl" { print $1 }') != *tap0-${NETNAME}* ]]
 fi
 
 # get tpm going
-#exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
+exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
 
 if [[ ${GPU_MODE} == *"intel"* ]]; then
     # intel
-    DRI_PRIME=pci-0000_00_02_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
+    DRI_PRIME=pci-0000_00_02_0 VAAPI_MPEG4_ENABLED=true VDPAU_DRIVER="i915" GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} ${cpu_affinity} ${BOOT_BIN} "${args[@]}"
 else
     # nvidia
-    __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+    __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${cpu_affinity} ${BOOT_BIN} "${args[@]}"
 fi
 
 exit 0

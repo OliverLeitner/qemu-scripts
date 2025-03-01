@@ -1,18 +1,48 @@
 #!/bin/bash
-# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [recovery]
+# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to run on] [recovery]
 
 # including help function library
-source "./help.sh"
+source $(dirname $0)"/help.sh"
 
 # commandline parameters
 GPU_MODE=$1
 GFX_BACKEND=$2
+CPU_SELECTED=$3
 RECOVERY_MODE=$3
 
+# if we fill in the cpu affinity, then recovery mode gets
+# corrected to flag number 4
+_first_core=$(echo $CPU_SELECTED |cut -d "," -f 1)
+_num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
+if [ -n "$_first_core" ] && [ "$_first_core" -eq "$_first_core" ] 2>/dev/null; then
+    RECOVERY_MODE=$4
+else
+    # if we dont have user input for the selected cores
+    # we go with the last 4 cores of the cpu as default
+    _num_total=4
+    _num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
+    _out_cpus=""
+
+    while [ $_num_total -gt 0 ]; do
+        _out_cpus+="${_num_cpus},"
+        let _num_cpus=_num_cpus-1
+        let _num_total=_num_total-1
+    done
+
+    CPU_SELECTED=${_out_cpus::-1}
+fi
+
 # ---------------- settings start ------------------
+# which qemu binary to run through
 BOOT_BIN=/usr/bin/qemu-system-x86_64
+# spice remove connection
+MEM=8G
+# monitor resolution in pixels
+declare -A SCREENSIZE
+SCREENSIZE[width]=1920
+SCREENSIZE[height]=1080
+# spice remove connection
 SPICE_PORT=5960
-MEM=4G
 # intel render node
 GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
 # nvidia render node
@@ -23,19 +53,20 @@ fi
 NETNAME=$(basename $0 |cut -d"." -f 1)
 MAC=$(grep -e "${NETNAME}=" macs.txt |cut -d"=" -f 2)
 SPICE_MODE=agent-mouse=on,addr=127.0.0.1,port=${SPICE_PORT},disable-ticketing=on,image-compression=off,jpeg-wan-compression=never,zlib-glz-wan-compression=never,streaming-video=off,playback-compression=off,rendernode=${RENDER}
-#DP=sdl,gl=on,show-cursor=off
 DP=egl-headless,rendernode=${RENDER}
-MTYPE=q35,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=off,hmat=on,memory-backend=mem1
-ACCEL=accel=kvm #,kernel_irqchip=on
+#DP=sdl,gl=on
+MTYPE=q35,accel=kvm,dump-guest-core=off,mem-merge=on,smm=on,vmport=on,nvdimm=on,hmat=on,memory-backend=mem1
+ACCEL=accel=kvm #,kernel_irqchip=on #,kvm-shadow-mem=256000000
 UUID="$(uuidgen)"
-CPU=2,maxcpus=2,cores=2,sockets=1,threads=1
-BIOS=/usr/share/OVMF/OVMF_CODE.fd
+# get the number of cores based upon our selected cores
+_num_selected=$(echo $CPU_SELECTED|awk -F',' '{print NF}')
+CPU=$_num_selected,maxcpus=$_num_selected,cores=$_num_selected,sockets=1,threads=1,dies=1
 # path to the operating system iso
-ISODIR=/data/isos/os
+ISODIR=/applications/OS/isos
 # path to the vm image
 VMDIR=/virtualisation
 # path to our recovery iso
-RECOVERYISO=/path/to/recovery.iso
+RECOVERYISO=/data/isos/recovery.iso
 # ---------------- settings end ------------------
 
 # lets have some commandline help
@@ -80,36 +111,36 @@ if [[ "${CONN}" == *"spice.sock" ]]; then
 fi
 
 args=(
-    #-nodefaults
     -uuid ${UUID}
-    -name ${NETNAME},process=${NETNAME}
+    -name ${NETNAME},process=${NETNAME},debug-threads=on
     -pidfile "/tmp/${NETNAME}/${NETNAME}.pid"
     #-parallel none
     #-serial none
+    #-nodefaults
     #-no-user-config
-    -cpu host,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,vmware-cpuid-freq=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890,kvm=on,pcid=on,spec-ctrl=on,+aes,+avx,check
-    #-cpu qemu64
+    -cpu host,vmx=on,hypervisor=on,hv-time=on,hv-relaxed=on,hv-vapic=on,vmware-cpuid-freq=on,hv-spinlocks=0x1fff,hv-vendor-id=1234567890,kvm=on,pcid=off,spec-ctrl=off
     -smp ${CPU}
     -m ${MEM}
     -smbios type=2,manufacturer="oliver",product="${NETNAME}starter",version="0.1",serial="0xDEADBEEF",location="github.com",asset="${NETNAME}"
     -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off
-    -global kvm-pit.lost_tick_policy=delay
     -mem-prealloc
-    -rtc base=localtime
+    -global kvm-pit.lost_tick_policy=delay
+    #-rtc base=localtime
     #-boot order=c,menu=on,strict=on,splash-time=20000
     -object iothread,id=iothread0
-    # recovery mode
+    #-drive "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd"
+    #-drive "if=pflash,format=raw,file=/tmp/${NETNAME}/my_vars.fd"
+    #-drive file=${ISODIR}/haiku-r1beta5-x86_64-anyboot.iso,media=cdrom
     ${RECOVERYINFO}
-    #-cdrom ${ISODIR}/haiku-r1beta4-x86_64-anyboot.iso
-    -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,media=disk,index=1,if=none,cache=none,cache.direct=off,aio=io_uring
+    -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=none,format=qcow2,cache=none,aio=io_uring,cache.direct=off
     -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
-    #-chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
-    #-tpmdev emulator,id=tpm0,chardev=chrtpm
-    #-device tpm-crb,tpmdev=tpm0
+    -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
+    -tpmdev emulator,id=tpm0,chardev=chrtpm
+    -device tpm-crb,tpmdev=tpm0
     -enable-kvm
     -object memory-backend-memfd,id=mem1,share=on,merge=on,size=${MEM}
     -machine ${MTYPE},${ACCEL}
-    #-object memory-backend-file,size=4G,share=on,mem-path=/dev/shm/ivshmem,id=hostmem
+    #-object memory-backend-file,size=${MEM},share=on,mem-path=/dev/shm/ivshmem,id=hostmem
     -overcommit mem-lock=off
     #-overcommit cpu-pm=on
     #-device ${SHMEM}
@@ -123,36 +154,55 @@ args=(
     -device virtserialport,chardev=agent0,name=org.qemu.guest_agent.0
     -chardev spicevmc,id=vdagent0,name=vdagent
     -device virtserialport,chardev=vdagent0,name=com.redhat.spice.0
-    #-device VGA
-    -device virtio-vga-gl,edid=on,xres=1920,yres=1080
-    #-device virtio-gpu-gl-pci,edid=on
-    #-vga none
+    -device virtio-vga-gl,edid=on,xres=${SCREENSIZE[width]},yres=${SCREENSIZE[height]}
+    #-device virtio-vga
+    #-vga std
+    #-vga virtio
     #-device qxl-vga
     #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
     #-device vmware-svga
     #-global vmware-svga.vgamem_mb=1024
     -spice ${SPICE_MODE}
     -display ${DP}
-    -device virtio-net-pci,mac=${MAC},netdev=net0,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on #,indirect_desc=off,disable-modern=off,page-per-vq=on
-    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0 #,vhost=off,poll-us=50000
-    # working nics: e1000 (instable), usb-net (super slow), pcnet (even slower), rtl8139, virtio-net-pci (instable)
-    #-device rtl8139,netdev=net0,mac=${MAC} #,mq=on,packed=on
-    #-netdev user,id=net0,ipv6=off
+    -device virtio-net-pci,netdev=net0,mac=${MAC}
+    #-device rtl8139,netdev=net0,mac=${MAC}
+    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
     #-audiodev sdl,id=snd0
     -audiodev ${AUDIO_SERVER}
+    #-device intel-hda
     -device ich9-intel-hda
     -device hda-duplex,audiodev=snd0
-    #-audiodev sdl,id=sdl0
-    #-device ac97,audiodev=sdl0
+    #-device hda-micro,audiodev=snd0
+    #-device ac97,audiodev=snd0
+    #-chardev pty,id=charserial0
+    #-device isa-serial,chardev=charserial0,id=serial0
+    #-chardev spicevmc,id=charchannel0,name=vdagent
+    #-device virtio-keyboard
+    #-device virtio-tablet-pci
+    #-device virtio-mouse-pci
     -usb
-    -device usb-tablet
+    #-device usb-ehci,id=ehci
+    #-device nec-usb-xhci,id=xhci
+    #-device qemu-xhci,id=xhci
+    #-device usb-audio,multi=on,bus=xhci.0,audiodev=snd0
+    -device usb-tablet #,bus=xhci.0
+    #-device usb-kbd
+    #-device usb-mouse
+    #-device virtio-tablet-pci
     -monitor stdio
     # below is a qemu api scriptable via json
     -chardev socket,id=qmp,path="/tmp/${NETNAME}/qmp.sock",server=on,wait=off
     -mon chardev=qmp,mode=control,pretty=on
     -sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
     -k de
+    #-full-screen
 )
+
+# switch cpu affinity on, if the config is set
+cpu_affinity=
+if [[ ${CPU_SELECTED} != "" ]] && [[ ${CPU_SELECTED} != "0" ]] ; then
+    cpu_affinity="taskset -c ${CPU_SELECTED}"
+fi
 
 # define a graphical backend, either x11 or wayland, defaults to x11
 # does not depend on host choice, freely choosable
@@ -171,16 +221,22 @@ if [ ! -d "/tmp/${NETNAME}" ]; then
     mkdir /tmp/${NETNAME}
 fi
 
+#create myvars if not exists
+#if [ ! -f "/tmp/${NETNAME}/my_vars.fd" ]; then
+#    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/${NETNAME}/my_vars.fd
+#fi
+
 # get tpm going
-#exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
+exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
 
 # for a gpu, we have two choices, either intel or nvidia, defaults to nvidia
 if [[ ${GPU_MODE} == *"intel"* ]]; then
     # intel
-    DRI_PRIME=pci-0000_00_02_0 VIRGL_RENDERER_ASYNC_FENCE_CB=1 VAAPI_MPEG4_ENABLED=true VGL_READBACK=bpo __GLX_VENDOR_LIBRARY_NAME=mesa GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="i915" ${BOOT_BIN} "${args[@]}"
+    DRI_PRIME=pci-0000_00_02_0 VAAPI_MPEG4_ENABLED=true VDPAU_DRIVER="i915" GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} ${cpu_affinity} ${BOOT_BIN} "${args[@]}"
 else
     # nvidia
-    DRI_PRIME=pci-0000_01_00_0 _VIRGL_RENDERER_ASYNC_FENCE_CB=1 _NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia VAAPI_MPEG4_ENABLED=true VGL_READBACK=pbo __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${BOOT_BIN} "${args[@]}"
+    _NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia DRI_PRIME=pci-0000_01_00_0 VAAPI_MPEG4_ENABLED=true __GLX_VENDOR_LIBRARY_NAME=mesa MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink GDK_SCALE=1 CLUTTER_BACKEND=${GFX_BACKEND} GTK_BACKEND=${GFX_BACKEND} GDK_BACKEND=${GFX_BACKEND} QT_BACKEND=${GFX_BACKEND} VDPAU_DRIVER="nvidia" ${cpu_affinity} ${BOOT_BIN} "${args[@]}"
 fi
 
+#close up script
 exit 0

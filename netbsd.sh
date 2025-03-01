@@ -42,7 +42,7 @@ declare -A SCREENSIZE
 SCREENSIZE[width]=1920
 SCREENSIZE[height]=1080
 # spice remove connection
-SPICE_PORT=5970
+SPICE_PORT=5910
 # intel render node
 GVT_RENDER=/dev/dri/by-path/pci-0000:00:02.0-render
 # nvidia render node
@@ -62,7 +62,7 @@ UUID="$(uuidgen)"
 _num_selected=$(echo $CPU_SELECTED|awk -F',' '{print NF}')
 CPU=$_num_selected,maxcpus=$_num_selected,cores=$_num_selected,sockets=1,threads=1,dies=1
 # path to the operating system iso
-ISODIR=/applications/OS/isos
+ISODIR=/applications/OS/isos/bsd
 # path to the vm image
 VMDIR=/virtualisation
 # path to our recovery iso
@@ -122,7 +122,7 @@ args=(
     -smp ${CPU}
     -m ${MEM}
     -smbios type=2,manufacturer="oliver",product="${NETNAME}starter",version="0.1",serial="0xDEADBEEF",location="github.com",asset="${NETNAME}"
-    -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off
+    #-global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off
     -mem-prealloc
     #-global kvm-pit.lost_tick_policy=delay
     #-rtc base=localtime
@@ -130,13 +130,13 @@ args=(
     -object iothread,id=iothread0
     #-drive "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd"
     #-drive "if=pflash,format=raw,file=/tmp/${NETNAME}/my_vars.fd"
-    #-drive file=${ISODIR}/install76.iso,media=cdrom
     ${RECOVERYINFO}
+    #-drive file=${ISODIR}/NetBSD-10.1-amd64.iso,media=cdrom
     -drive id=drive0,file=${VMDIR}/${NETNAME}.qcow2,index=0,media=disk,if=none,format=qcow2,cache=none,aio=io_uring,cache.direct=off
     -device virtio-blk-pci,drive=drive0,num-queues=4,iothread=iothread0
-    #-chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
-    #-tpmdev emulator,id=tpm0,chardev=chrtpm
-    #-device tpm-crb,tpmdev=tpm0
+    -chardev socket,id=chrtpm,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME}
+    -tpmdev emulator,id=tpm0,chardev=chrtpm
+    -device tpm-crb,tpmdev=tpm0
     -enable-kvm
     -object memory-backend-memfd,id=mem1,share=on,merge=on,size=${MEM}
     -machine ${MTYPE},${ACCEL}
@@ -158,22 +158,22 @@ args=(
     #-device virtio-vga
     #-vga std
     #-vga virtio
-    # bsd qxl is party broken, cant handle modern compositors, sluggish at best...
     #-device qxl-vga
     #-global qxl-vga.ram_size=524288 -global qxl-vga.vram_size=524288 -global qxl-vga.vgamem_mb=512
     -device vmware-svga
     -global vmware-svga.vgamem_mb=1024
     -spice ${SPICE_MODE}
     -display ${DP}
-    -device virtio-net-pci,rx_queue_size=256,tx_queue_size=256,mq=on,packed=on,netdev=net0,mac=${MAC},indirect_desc=off #,disable-modern=off,page-per-vq=on
-    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,vhost=off,poll-us=50000,id=net0
+    #-device rtl8139,netdev=net0,mac=${MAC}
+    -device virtio-net-pci,mq=off,packed=off,netdev=net0,mac=${MAC}
+    -netdev tap,ifname=tap0-${NETNAME},script=no,downscript=no,id=net0
     #-audiodev sdl,id=snd0
     -audiodev ${AUDIO_SERVER}
-    -device intel-hda
-    #-device ich9-intel-hda
+    #-device intel-hda
+    -device ich9-intel-hda
     -device hda-duplex,audiodev=snd0
     -device hda-micro,audiodev=snd0
-    -device ac97,audiodev=snd0
+    #-device ac97,audiodev=snd0
     #-chardev pty,id=charserial0
     #-device isa-serial,chardev=charserial0,id=serial0
     #-chardev spicevmc,id=charchannel0,name=vdagent
@@ -184,7 +184,7 @@ args=(
     #-device usb-ehci,id=ehci
     #-device nec-usb-xhci,id=xhci
     -device qemu-xhci,id=xhci
-    -device usb-audio,multi=on,bus=xhci.0,audiodev=snd0
+    #-device usb-audio,multi=on,bus=xhci.0,audiodev=snd0
     -device usb-tablet,bus=xhci.0
     #-device usb-kbd
     #-device usb-mouse
@@ -222,12 +222,12 @@ if [ ! -d "/tmp/${NETNAME}" ]; then
 fi
 
 #create myvars if not exists
-#if [ ! -f "/tmp/${NETNAME}/my_vars.fd" ]; then
-#    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/${NETNAME}/my_vars.fd
-#fi
+if [ ! -f "/tmp/${NETNAME}/my_vars.fd" ]; then
+    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/${NETNAME}/my_vars.fd
+fi
 
 # get tpm going
-#exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
+exec swtpm socket --tpm2 --tpmstate dir=/tmp/${NETNAME} --terminate --ctrl type=unixio,path=/tmp/${NETNAME}/swtpm-sock-${NETNAME} --daemon &
 
 # for a gpu, we have two choices, either intel or nvidia, defaults to nvidia
 if [[ ${GPU_MODE} == *"intel"* ]]; then

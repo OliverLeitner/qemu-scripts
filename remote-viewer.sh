@@ -2,7 +2,7 @@
 # ./command.sh <nvidia|intel> <x11|wayland>
 
 # including help function library
-source "./help.sh"
+source $(dirname $0)"/help.sh"
 
 # lets have a choice upon gpu, intel or nvidia, defaults to nvidia
 GPU_MODE=$1
