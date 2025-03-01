@@ -77,7 +77,7 @@ vm guest run as your user, dont need to be superuser, however, the net bridge an
 - HOST: uuid-runtime (uuidgen tool for generating unique process ids)
 - HOST: a bridged network (br0) and a dhcp server, the scripts generate tap interfaces based upon it
 - HOST: tested with an NVIDIA Card (GTX 750, RTX 3050 is what ive been using), INTEL integrated gfx (my cpu has an i915 compatible one...)
-- HOSt: Intel Core I7 12th gen (others are possible, this is just what i have been running em on...)
+- HOST: Intel Core I3 8th gen (others are possible, this is just what i have been running em on...)
 - HOST: base gnu tools in reasonably current versions: "bash", "cat", "grep", "ip", "cut", "brctl", "nmcli", "sudo", "awk", "tr"
 - HOST: enough RAM and disk space to handle the machine(s)
 - HOST: a file called "macs.txt" containing names and mac addresses of guests in the form of one "netname=mac" per line
