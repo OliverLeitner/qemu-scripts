@@ -1,5 +1,5 @@
 #!/bin/bash
-# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to run on] [recovery]
+# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to use] [recovery]
 
 # including help function library
 source $(dirname $0)"/help.sh"
@@ -19,6 +19,8 @@ if [ -n "$_first_core" ] && [ "$_first_core" -eq "$_first_core" ] 2>/dev/null; t
 else
     # if we dont have user input for the selected cores
     # we go with the last 4 cores of the cpu as default
+    # attention: windows might loose its activation when
+    # you change the number of cores
     _num_total=4
     _num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
     _out_cpus=""
