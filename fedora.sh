@@ -1,5 +1,5 @@
 #!/bin/bash
-# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to run on] [recovery]
+# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [recovery]
 
 # including help function library
 source $(dirname $0)"/help.sh"
@@ -190,7 +190,7 @@ args=(
 # switch cpu affinity on, if the config is set
 cpu_affinity=
 if [[ ${CPU_SELECTED} != "" ]] && [[ ${CPU_SELECTED} != "0" ]] ; then
-    cpu_affinity="taskset -c ${CPU_SELECTED}
+    cpu_affinity="taskset -c ${CPU_SELECTED}"
 fi
 
 # define a graphical backend, either x11 or wayland, defaults to x11
