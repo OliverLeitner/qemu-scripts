@@ -1,5 +1,5 @@
 #!/bin/bash
-# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to run on] [recovery]
+# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to use] [recovery]
 
 # including help function library
 source $(dirname $0)"/help.sh"
@@ -21,6 +21,9 @@ else
     # we go with the last 4 cores of the cpu as default
     # osx 16gigs ram and 8 cores seem to be a starting
     # point according to system requirements...
+    # attention: if you want more than 8 cores, make sure you change
+    # opencore config.plist to reflect that as well, else
+    # the machine will hang
     _num_total=8
     _num_cpus=$(cat /proc/cpuinfo |grep processor |tail -n1 |cut -d " " -f 2)
     _out_cpus=""

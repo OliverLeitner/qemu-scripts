@@ -1,5 +1,5 @@
 #!/bin/bash
-# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [recovery]
+# start cmd: ./vm.sh <nvidia|intel> <x11|wayland> [1,2,3... cores you want to use] [recovery]
 
 # including help function library
 source $(dirname $0)"/help.sh"
